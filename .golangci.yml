@@ -1,0 +1,56 @@
+run:
+  # Timeout for analysis, e.g. 30s, 5m
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck     # Check for unchecked errors
+    - gosimple     # Simplify code
+    - govet        # Examines Go source code and reports suspicious constructs
+    - ineffassign  # Detects unused assignments
+    - staticcheck  # Extensive static analysis
+    - typecheck    # Parse and type-check Go code
+    - unused       # Check for unused constants, variables, functions and types
+    - gofmt        # Check whether code was formatted with gofmt
+    - goimports    # Check import statements are formatted according to the goimports tool
+    - misspell     # Check for commonly misspelled English words
+    - gosec        # Security problems
+    - gocyclo      # Cyclomatic complexity
+    - gocritic     # The most opinionated Go source code linter
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+    disabled-checks:
+      - hugeParam
+      - rangeValCopy
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+    - path: server/base\.go
+      text: "exported method (\\w+\\.)(\\w+) should have comment or be unexported"
+      linters:
+        - golint
+    - path: transport/
+      text: "exported method (\\w+\\.)(\\w+) should have comment or be unexported"
+      linters:
+        - golint
+
+  # Maximum issues count per one linter. Set to 0 to disable.
+  max-issues-per-linter: 0
+
+  # Maximum count of issues with the same text. Set to 0 to disable.
+  max-same-issues: 0 

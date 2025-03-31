@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/virgoC0der/go-mcp/server"
 	"github.com/virgoC0der/go-mcp/transport"
@@ -55,12 +56,12 @@ func NewEchoServer() *EchoServer {
 }
 
 // GetPrompt implements the prompt handler for the echo server
-func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[string]string) (*types.GetPromptResult, error) {
+func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
 
-	message, ok := arguments["message"]
+	message, ok := arguments["message"].(string)
 	if !ok {
 		return nil, fmt.Errorf("missing required argument: message")
 	}
@@ -80,7 +81,7 @@ func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[s
 }
 
 // CallTool implements the tool handler for the echo server
-func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (interface{}, error) {
+func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
@@ -90,7 +91,11 @@ func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[st
 		return nil, fmt.Errorf("missing or invalid argument: message")
 	}
 
-	return fmt.Sprintf("Echo: %s", message), nil
+	return &types.CallToolResult{
+		Content: map[string]interface{}{
+			"message": fmt.Sprintf("Echo: %s", message),
+		},
+	}, nil
 }
 
 // ReadResource implements the resource handler for the echo server
@@ -152,6 +157,18 @@ func main() {
 	<-sigChan
 
 	log.Println("Shutting down servers...")
+
+	// Create context with timeout for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Shutdown servers
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("Error shutting down HTTP server: %v", err)
+	}
+	if err := wsServer.Shutdown(ctx); err != nil {
+		log.Printf("Error shutting down WebSocket server: %v", err)
+	}
 
 	// Wait for servers to shut down
 	wg.Wait()

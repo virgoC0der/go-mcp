@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -57,8 +56,8 @@ func NewAdvancedServer() *AdvancedServer {
 
 // GreetInput defines the input for the greet prompt
 type GreetInput struct {
-	Name    string `json:"name" jsonschema:"required,description=Name to greet"`
-	Formal  bool   `json:"formal" jsonschema:"description=Whether to use formal greeting"`
+	Name     string `json:"name" jsonschema:"required,description=Name to greet"`
+	Formal   bool   `json:"formal" jsonschema:"description=Whether to use formal greeting"`
 	Language string `json:"language" jsonschema:"description=Language code for the greeting (en, es, fr)"`
 }
 
@@ -119,7 +118,7 @@ func (s *AdvancedServer) handleCalculatorTool(input CalculatorInput) (*types.Cal
 	}
 
 	content := map[string]interface{}{
-		"result": result,
+		"result":    result,
 		"operation": input.Operation,
 		"operands": map[string]float64{
 			"a": input.A,
@@ -220,9 +219,16 @@ func main() {
 	<-signalChan
 
 	fmt.Println("Shutting down servers...")
-	httpServer.Stop()
-	wsServer.Stop()
-	stdioServer.Stop()
+	ctx := context.Background()
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("Error shutting down HTTP server: %v", err)
+	}
+	if err := wsServer.Shutdown(ctx); err != nil {
+		log.Printf("Error shutting down WebSocket server: %v", err)
+	}
+	if err := stdioServer.Stop(); err != nil {
+		log.Printf("Error shutting down stdio server: %v", err)
+	}
 
 	// Wait for servers to shut down
 	wg.Wait()

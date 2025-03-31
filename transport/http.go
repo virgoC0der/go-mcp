@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -9,23 +10,36 @@ import (
 
 // HTTPServer wraps the HTTP transport layer for an MCP server
 type HTTPServer struct {
-	server server.Server
-	addr   string
+	server  server.Server
+	addr    string
 	handler *HTTPHandler
+	srv     *http.Server
 }
 
 // NewHTTPServer creates a new HTTP server instance
 func NewHTTPServer(mcpServer server.Server, addr string) *HTTPServer {
 	return &HTTPServer{
-		server: mcpServer,
-		addr:   addr,
+		server:  mcpServer,
+		addr:    addr,
 		handler: NewHTTPHandler(mcpServer),
 	}
 }
 
 // Start starts the HTTP server
 func (s *HTTPServer) Start() error {
-	return http.ListenAndServe(s.addr, s.handler)
+	s.srv = &http.Server{
+		Addr:    s.addr,
+		Handler: s.handler,
+	}
+	return s.srv.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the HTTP server
+func (s *HTTPServer) Shutdown(ctx context.Context) error {
+	if s.srv != nil {
+		return s.srv.Shutdown(ctx)
+	}
+	return nil
 }
 
 // Legacy HTTP handlers kept for backwards compatibility
@@ -52,7 +66,7 @@ func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name      string            `json:"name"`
+		Name      string                 `json:"name"`
 		Arguments map[string]interface{} `json:"arguments"`
 	}
 

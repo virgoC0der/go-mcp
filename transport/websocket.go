@@ -18,6 +18,7 @@ type WSServer struct {
 	upgrader websocket.Upgrader
 	clients  sync.Map
 	handler  *WebSocketHandler
+	srv      *http.Server
 }
 
 // Message represents the structure of a WebSocket message
@@ -54,7 +55,19 @@ func NewWSServer(mcpServer server.Server, addr string) *WSServer {
 func (s *WSServer) Start() error {
 	mux := http.NewServeMux()
 	mux.Handle("/ws", s.handler)
-	return http.ListenAndServe(s.addr, mux)
+	s.srv = &http.Server{
+		Addr:    s.addr,
+		Handler: mux,
+	}
+	return s.srv.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the WebSocket server
+func (s *WSServer) Shutdown(ctx context.Context) error {
+	if s.srv != nil {
+		return s.srv.Shutdown(ctx)
+	}
+	return nil
 }
 
 func (s *WSServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
