@@ -124,10 +124,8 @@ func TestClient_GetPrompt(t *testing.T) {
 
 			if args, ok := params["args"].(map[string]interface{}); !ok {
 				t.Error("Expected args parameter to be map[string]interface{}")
-			} else {
-				if args["arg1"] != "value1" {
-					t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
-				}
+			} else if args["arg1"] != "value1" {
+				t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
 			}
 
 			return mockResult, nil
@@ -226,10 +224,8 @@ func TestClient_CallTool(t *testing.T) {
 
 			if args, ok := params["args"].(map[string]interface{}); !ok {
 				t.Error("Expected args parameter to be map[string]interface{}")
-			} else {
-				if args["arg1"] != "value1" {
-					t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
-				}
+			} else if args["arg1"] != "value1" {
+				t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
 			}
 
 			return mockResult, nil
