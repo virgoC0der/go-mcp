@@ -16,10 +16,11 @@ import (
 
 // WebSocketHandler handles WebSocket connections for the MCP server
 type WebSocketHandler struct {
-	server   Server
-	upgrader websocket.Upgrader
-	clients  map[*websocket.Conn]bool
-	mutex    sync.Mutex
+	server       Server
+	upgrader     websocket.Upgrader
+	clients      map[*websocket.Conn]bool
+	mutex        sync.Mutex
+	writeMutexes map[*websocket.Conn]*sync.Mutex
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
@@ -31,7 +32,8 @@ func NewWebSocketHandler(server Server) *WebSocketHandler {
 				return true // Allow all origins
 			},
 		},
-		clients: make(map[*websocket.Conn]bool),
+		clients:      make(map[*websocket.Conn]bool),
+		writeMutexes: make(map[*websocket.Conn]*sync.Mutex),
 	}
 }
 
@@ -47,6 +49,7 @@ func (h *WebSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Register client
 	h.mutex.Lock()
 	h.clients[conn] = true
+	h.writeMutexes[conn] = &sync.Mutex{}
 	h.mutex.Unlock()
 
 	// Handle WebSocket connection
@@ -59,6 +62,7 @@ func (h *WebSocketHandler) handleConnection(conn *websocket.Conn) {
 		// Unregister client
 		h.mutex.Lock()
 		delete(h.clients, conn)
+		delete(h.writeMutexes, conn)
 		h.mutex.Unlock()
 
 		// Close connection
@@ -306,6 +310,30 @@ func (h *WebSocketHandler) sendResponse(conn *websocket.Conn, response map[strin
 		response["messageId"] = fmt.Sprintf("%d", atomic.AddInt64(&requestCounter, 1))
 	}
 
-	// Send response
-	conn.WriteJSON(response)
+	// Get the mutex for this connection
+	h.mutex.Lock()
+	writeMutex, ok := h.writeMutexes[conn]
+	h.mutex.Unlock()
+
+	if !ok {
+		// Connection already closed
+		return
+	}
+
+	// Lock the mutex for this connection
+	writeMutex.Lock()
+	defer writeMutex.Unlock()
+
+	// Serialize the response to JSON first
+	data, err := json.Marshal(response)
+	if err != nil {
+		fmt.Printf("Error marshaling response: %v\n", err)
+		return
+	}
+
+	// Use the lower-level WriteMessage method instead of WriteJSON
+	err = conn.WriteMessage(websocket.TextMessage, data)
+	if err != nil {
+		fmt.Printf("Error writing message: %v\n", err)
+	}
 }
