@@ -175,7 +175,7 @@ func TestCallToolResultSerialization(t *testing.T) {
 	// Create a CallToolResult
 	result := CallToolResult{
 		Content: map[string]interface{}{
-			"key": "value",
+			"key":    "value",
 			"number": 42,
 		},
 	}

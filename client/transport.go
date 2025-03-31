@@ -56,7 +56,7 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 			ctx,
 			http.MethodGet,
 			t.baseURL+"prompts",
-			nil,
+			http.NoBody,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
@@ -95,7 +95,7 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 			ctx,
 			http.MethodGet,
 			t.baseURL+"tools",
-			nil,
+			http.NoBody,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
@@ -134,7 +134,7 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 			ctx,
 			http.MethodGet,
 			t.baseURL+"resources",
-			nil,
+			http.NoBody,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
@@ -149,7 +149,7 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 			ctx,
 			http.MethodGet,
 			t.baseURL+"resources/"+name,
-			nil,
+			http.NoBody,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)

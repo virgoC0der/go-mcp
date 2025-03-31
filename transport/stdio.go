@@ -60,7 +60,7 @@ func NewStdioServerWithIO(srv server.Server, reader io.Reader, writer io.Writer)
 func (s *StdioServer) Start() error {
 	// Start reading from stdin
 	go s.readLoop()
-	
+
 	// Process messages
 	for {
 		select {
@@ -315,6 +315,6 @@ func (s *StdioServer) sendResponse(id string, success bool, content json.RawMess
 }
 
 // sendError sends an error response
-func (s *StdioServer) sendError(id string, errorMsg string) {
+func (s *StdioServer) sendError(id, errorMsg string) {
 	s.sendResponse(id, false, nil, errorMsg)
 }

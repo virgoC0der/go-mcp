@@ -139,7 +139,7 @@ func (c *HTTPClient) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
 		ctx,
 		http.MethodGet,
 		c.baseURL+"prompts",
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -179,7 +179,7 @@ func (c *HTTPClient) ListPromptsPaginated(ctx context.Context, options types.Pag
 		ctx,
 		http.MethodGet,
 		fmt.Sprintf("%sprompts?page=%d&pageSize=%d", c.baseURL, options.Page, options.PageSize),
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -274,7 +274,7 @@ func (c *HTTPClient) ListTools(ctx context.Context) ([]types.Tool, error) {
 		ctx,
 		http.MethodGet,
 		c.baseURL+"tools",
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -314,7 +314,7 @@ func (c *HTTPClient) ListToolsPaginated(ctx context.Context, options types.Pagin
 		ctx,
 		http.MethodGet,
 		fmt.Sprintf("%stools?page=%d&pageSize=%d", c.baseURL, options.Page, options.PageSize),
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -354,7 +354,7 @@ func (c *HTTPClient) ReadResource(ctx context.Context, name string) ([]byte, str
 		ctx,
 		http.MethodGet,
 		c.baseURL+"resource/"+name,
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create request: %w", err)
@@ -397,7 +397,7 @@ func (c *HTTPClient) ListResources(ctx context.Context) ([]types.Resource, error
 		ctx,
 		http.MethodGet,
 		c.baseURL+"resources",
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -437,7 +437,7 @@ func (c *HTTPClient) ListResourcesPaginated(ctx context.Context, options types.P
 		ctx,
 		http.MethodGet,
 		fmt.Sprintf("%sresources?page=%d&pageSize=%d", c.baseURL, options.Page, options.PageSize),
-		nil,
+		http.NoBody,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

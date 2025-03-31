@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/virgoC0der/go-mcp/server"
@@ -16,9 +17,9 @@ type WSServer struct {
 	server   server.Server
 	addr     string
 	upgrader websocket.Upgrader
-	clients  sync.Map
-	handler  *WebSocketHandler
-	srv      *http.Server
+	// clients field is deprecated and no longer used
+	handler *WebSocketHandler
+	srv     *http.Server
 }
 
 // Message represents the structure of a WebSocket message
@@ -56,8 +57,9 @@ func (s *WSServer) Start() error {
 	mux := http.NewServeMux()
 	mux.Handle("/ws", s.handler)
 	s.srv = &http.Server{
-		Addr:    s.addr,
-		Handler: mux,
+		Addr:              s.addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return s.srv.ListenAndServe()
 }
@@ -70,6 +72,7 @@ func (s *WSServer) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *WSServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -180,5 +183,7 @@ func (s *WSServer) handleMessage(ctx context.Context, conn *websocket.Conn, msg 
 		response.Error = fmt.Sprintf("unknown method: %s", msg.Method)
 	}
 
-	conn.WriteJSON(response)
+	if err := conn.WriteJSON(response); err != nil {
+		log.Printf("Failed to write JSON response: %v", err)
+	}
 }

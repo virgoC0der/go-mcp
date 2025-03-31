@@ -12,14 +12,14 @@ const (
 	NotificationPromptRemoved NotificationType = "promptRemoved"
 	// NotificationPromptChanged is sent when a prompt is changed
 	NotificationPromptChanged NotificationType = "promptChanged"
-	
+
 	// NotificationToolAdded is sent when a new tool is added
 	NotificationToolAdded NotificationType = "toolAdded"
 	// NotificationToolRemoved is sent when a tool is removed
 	NotificationToolRemoved NotificationType = "toolRemoved"
 	// NotificationToolChanged is sent when a tool is changed
 	NotificationToolChanged NotificationType = "toolChanged"
-	
+
 	// NotificationResourceAdded is sent when a new resource is added
 	NotificationResourceAdded NotificationType = "resourceAdded"
 	// NotificationResourceRemoved is sent when a resource is removed

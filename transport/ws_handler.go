@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -70,7 +71,9 @@ func (h *WebSocketHandler) handleConnection(conn *websocket.Conn) {
 	}()
 
 	// Set read deadline
-	conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
+	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Minute)); err != nil {
+		log.Printf("Failed to set read deadline: %v", err)
+	}
 
 	// Handle messages
 	for {
@@ -84,7 +87,9 @@ func (h *WebSocketHandler) handleConnection(conn *websocket.Conn) {
 		}
 
 		// Reset read deadline
-		conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
+		if err := conn.SetReadDeadline(time.Now().Add(10 * time.Minute)); err != nil {
+			log.Printf("Failed to reset read deadline: %v", err)
+		}
 
 		// Handle message
 		go h.handleMessage(conn, message)

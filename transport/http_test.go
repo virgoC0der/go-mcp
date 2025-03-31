@@ -106,7 +106,7 @@ func TestHTTPHandler_ListPrompts(t *testing.T) {
 	handler := NewHTTPHandler(mockServer)
 
 	// Create request
-	req := httptest.NewRequest(http.MethodGet, "/prompts", nil)
+	req := httptest.NewRequest(http.MethodGet, "/prompts", http.NoBody)
 
 	// Create response recorder
 	res := httptest.NewRecorder()
@@ -272,7 +272,7 @@ func TestHTTPHandler_ListTools(t *testing.T) {
 	handler := NewHTTPHandler(mockServer)
 
 	// Create request
-	req := httptest.NewRequest(http.MethodGet, "/tools", nil)
+	req := httptest.NewRequest(http.MethodGet, "/tools", http.NoBody)
 
 	// Create response recorder
 	res := httptest.NewRecorder()

@@ -12,11 +12,11 @@ import (
 
 // StdioClient implements a client that communicates with a server over stdio
 type StdioClient struct {
-	reader     io.Reader
-	writer     io.Writer
-	requestID  int
-	responses  map[string]chan []byte
-	lock       sync.Mutex
+	reader      io.Reader
+	writer      io.Writer
+	requestID   int
+	responses   map[string]chan []byte
+	lock        sync.Mutex
 	initialized bool
 }
 

@@ -67,8 +67,8 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 		t.Errorf("Expected response type 'response', got '%v'", respType)
 	}
 
-	if messageId, ok := response["messageId"].(string); !ok || messageId != "1" {
-		t.Errorf("Expected messageId '1', got '%v'", messageId)
+	if messageID, ok := response["messageId"].(string); !ok || messageID != "1" {
+		t.Errorf("Expected messageId '1', got '%v'", messageID)
 	}
 
 	if success, ok := response["success"].(bool); !ok || !success {
@@ -309,8 +309,8 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 				t.Errorf("Expected response type 'response', got '%v'", respType)
 			}
 
-			if messageId, ok := response["messageId"].(string); !ok || messageId != tc.request["messageId"].(string) {
-				t.Errorf("Expected messageId '%s', got '%v'", tc.request["messageId"].(string), messageId)
+			if messageID, ok := response["messageId"].(string); !ok || messageID != tc.request["messageId"].(string) {
+				t.Errorf("Expected messageId '%s', got '%v'", tc.request["messageId"].(string), messageID)
 			}
 
 			// Run case-specific checks

@@ -33,7 +33,7 @@ type PaginatedResult struct {
 // NewPaginatedResult creates a new paginated result
 func NewPaginatedResult(items interface{}, totalItems, pageSize, currentPage int) PaginatedResult {
 	totalPages := calculateTotalPages(totalItems, pageSize)
-	
+
 	return PaginatedResult{
 		Items:       items,
 		TotalItems:  totalItems,
@@ -48,12 +48,12 @@ func calculateTotalPages(totalItems, pageSize int) int {
 	if pageSize <= 0 {
 		pageSize = 1
 	}
-	
+
 	totalPages := totalItems / pageSize
 	if totalItems%pageSize > 0 {
 		totalPages++
 	}
-	
+
 	return totalPages
 }
 
@@ -62,7 +62,7 @@ func ApplyPaginationToSlice(slice interface{}, options PaginationOptions) (inter
 	// Implementation for slicing a generic slice based on pagination options
 	// This is a placeholder - actual implementation would require reflection
 	// to handle different slice types
-	
+
 	// For now, this is just a stub - real implementation would be more complex
 	return slice, 0, nil
 }

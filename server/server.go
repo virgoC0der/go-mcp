@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"reflect"
 
 	"github.com/virgoC0der/go-mcp/types"
@@ -298,15 +299,17 @@ func (s *BaseServer) RegisterPrompt(prompt types.Prompt) {
 
 	// Notify handlers of the new prompt
 	if s.notifications != nil {
-		s.notifications.SendNotification(context.Background(), types.Notification{
+		if err := s.notifications.SendNotification(context.Background(), types.Notification{
 			Type: types.NotificationPromptAdded,
 			Item: prompt,
-		})
+		}); err != nil {
+			log.Printf("Failed to send notification: %v", err)
+		}
 	}
 }
 
 // RegisterPromptTyped implements Server.RegisterPromptTyped
-func (s *BaseServer) RegisterPromptTyped(name string, description string, handler interface{}) error {
+func (s *BaseServer) RegisterPromptTyped(name, description string, handler interface{}) error {
 	// Validate handler is a function
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
@@ -349,10 +352,12 @@ func (s *BaseServer) RegisterPromptTyped(name string, description string, handle
 
 	// Notify handlers of the new prompt
 	if s.notifications != nil {
-		s.notifications.SendNotification(context.Background(), types.Notification{
+		if err := s.notifications.SendNotification(context.Background(), types.Notification{
 			Type: types.NotificationPromptAdded,
 			Item: prompt,
-		})
+		}); err != nil {
+			log.Printf("Failed to send notification: %v", err)
+		}
 	}
 
 	return nil
@@ -364,15 +369,17 @@ func (s *BaseServer) RegisterTool(tool types.Tool) {
 
 	// Notify handlers of the new tool
 	if s.notifications != nil {
-		s.notifications.SendNotification(context.Background(), types.Notification{
+		if err := s.notifications.SendNotification(context.Background(), types.Notification{
 			Type: types.NotificationToolAdded,
 			Item: tool,
-		})
+		}); err != nil {
+			log.Printf("Failed to send notification: %v", err)
+		}
 	}
 }
 
 // RegisterToolTyped implements Server.RegisterToolTyped
-func (s *BaseServer) RegisterToolTyped(name string, description string, handler interface{}) error {
+func (s *BaseServer) RegisterToolTyped(name, description string, handler interface{}) error {
 	// Validate handler is a function
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
@@ -424,10 +431,12 @@ func (s *BaseServer) RegisterToolTyped(name string, description string, handler 
 
 	// Notify handlers of the new tool
 	if s.notifications != nil {
-		s.notifications.SendNotification(context.Background(), types.Notification{
+		if err := s.notifications.SendNotification(context.Background(), types.Notification{
 			Type: types.NotificationToolAdded,
 			Item: tool,
-		})
+		}); err != nil {
+			log.Printf("Failed to send notification: %v", err)
+		}
 	}
 
 	return nil
@@ -439,10 +448,12 @@ func (s *BaseServer) RegisterResource(resource types.Resource) {
 
 	// Notify handlers of the new resource
 	if s.notifications != nil {
-		s.notifications.SendNotification(context.Background(), types.Notification{
+		if err := s.notifications.SendNotification(context.Background(), types.Notification{
 			Type: types.NotificationResourceAdded,
 			Item: resource,
-		})
+		}); err != nil {
+			log.Printf("Failed to send notification: %v", err)
+		}
 	}
 }
 

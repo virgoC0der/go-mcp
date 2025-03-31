@@ -3,7 +3,9 @@ package transport
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/virgoC0der/go-mcp/server"
 )
@@ -28,8 +30,9 @@ func NewHTTPServer(mcpServer server.Server, addr string) *HTTPServer {
 // Start starts the HTTP server
 func (s *HTTPServer) Start() error {
 	s.srv = &http.Server{
-		Addr:    s.addr,
-		Handler: s.handler,
+		Addr:              s.addr,
+		Handler:           s.handler,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return s.srv.ListenAndServe()
 }
@@ -44,6 +47,7 @@ func (s *HTTPServer) Shutdown(ctx context.Context) error {
 
 // Legacy HTTP handlers kept for backwards compatibility
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *HTTPServer) handlePrompts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -56,9 +60,12 @@ func (s *HTTPServer) handlePrompts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(prompts)
+	if err := json.NewEncoder(w).Encode(prompts); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -81,9 +88,12 @@ func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *HTTPServer) handleTools(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -96,9 +106,12 @@ func (s *HTTPServer) handleTools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(tools)
+	if err := json.NewEncoder(w).Encode(tools); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *HTTPServer) handleTool(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -121,9 +134,12 @@ func (s *HTTPServer) handleTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *HTTPServer) handleResources(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -136,9 +152,12 @@ func (s *HTTPServer) handleResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(resources)
+	if err := json.NewEncoder(w).Encode(resources); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
+// Deprecated: Legacy handler kept for backwards compatibility
 func (s *HTTPServer) handleResource(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -158,5 +177,7 @@ func (s *HTTPServer) handleResource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", mimeType)
-	w.Write(content)
+	if _, err := w.Write(content); err != nil {
+		log.Printf("Failed to write response: %v", err)
+	}
 }

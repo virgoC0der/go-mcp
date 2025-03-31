@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -64,7 +65,9 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write response
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *HTTPHandler) handleInitialize(r *http.Request) map[string]interface{} {
