@@ -3,9 +3,6 @@ name: Go Test and Lint
 on:
   push:
     branches: [ '*' ]
-    branches-ignore:
-      - 'temp-*'
-      - 'draft-*'
   pull_request:
     branches: [ '*' ]
 
