@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,6 +20,7 @@ type WSServer struct {
 	// clients field is deprecated and no longer used
 	handler *WebSocketHandler
 	srv     *http.Server
+	mu      sync.RWMutex
 }
 
 // Message represents the structure of a WebSocket message
@@ -53,6 +55,9 @@ func NewWSServer(mcpServer Server, addr string) *WSServer {
 
 // Start starts the WebSocket server
 func (s *WSServer) Start() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	mux := http.NewServeMux()
 	mux.Handle("/ws", s.handler)
 	s.srv = &http.Server{
@@ -65,10 +70,14 @@ func (s *WSServer) Start() error {
 
 // Shutdown gracefully shuts down the WebSocket server
 func (s *WSServer) Shutdown(ctx context.Context) error {
-	if s.srv != nil {
-		return s.srv.Shutdown(ctx)
+	s.mu.Lock()
+	if s.srv == nil {
+		s.mu.Unlock()
+		return nil
 	}
-	return nil
+	srv := s.srv
+	s.mu.Unlock()
+	return srv.Shutdown(ctx)
 }
 
 // Deprecated: Legacy handler kept for backwards compatibility

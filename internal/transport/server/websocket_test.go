@@ -25,31 +25,43 @@ func TestWebSocketServer_Lifecycle(t *testing.T) {
 	server := NewWSServer(mockServer, ":8080")
 	assert.NotNil(t, server)
 
-	// Test Start (in goroutine since it blocks)
-	errCh := make(chan error)
+	// 创建一个通道来同步服务器的启动和关闭
+	serverStarted := make(chan struct{})
+	serverStopped := make(chan struct{})
+
+	// 在后台启动服务器
 	go func() {
+		// 等待一小段时间确保服务器完全启动
+		time.Sleep(100 * time.Millisecond)
+		close(serverStarted)
+
 		err := server.Start()
 		if err != nil && err.Error() != "http: Server closed" {
-			errCh <- err
-		} else {
-			errCh <- nil
+			t.Errorf("Server error: %v", err)
 		}
+		close(serverStopped)
 	}()
 
-	// Give server time to start
-	time.Sleep(2 * time.Second)
+	// 等待服务器启动
+	select {
+	case <-serverStarted:
+		// 服务器已启动
+	case <-time.After(2 * time.Second):
+		t.Fatal("Server did not start within timeout")
+	}
 
-	// Test Shutdown
+	// 创建一个带超时的上下文
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// 关闭服务器
 	err := server.Shutdown(ctx)
 	assert.NoError(t, err)
 
-	// Wait for server to stop
+	// 等待服务器完全停止
 	select {
-	case err := <-errCh:
-		assert.NoError(t, err)
+	case <-serverStopped:
+		// 服务器已停止
 	case <-time.After(5 * time.Second):
 		t.Error("Server did not stop within timeout")
 	}
