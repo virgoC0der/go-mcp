@@ -1,4 +1,4 @@
-package transport
+package server
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/virgoC0der/go-mcp/types"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
 // WebSocketHandler handles WebSocket connections for the MCP server

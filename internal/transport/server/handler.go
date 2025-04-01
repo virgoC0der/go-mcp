@@ -1,60 +1,63 @@
-package transport
+package server
 
 import (
 	"context"
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
-	"github.com/virgoC0der/go-mcp/server"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
-// HTTPServer wraps the HTTP transport layer for an MCP server
-type HTTPServer struct {
-	server  server.Server
-	addr    string
-	handler *HTTPHandler
-	srv     *http.Server
+// Server defines the interface for server implementations
+type Server interface {
+	Initialize(ctx context.Context, options any) error
+	ListPrompts(ctx context.Context) ([]types.Prompt, error)
+	GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error)
+	ListTools(ctx context.Context) ([]types.Tool, error)
+	CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error)
+	ListResources(ctx context.Context) ([]types.Resource, error)
+	ReadResource(ctx context.Context, name string) ([]byte, string, error)
 }
 
-// NewHTTPServer creates a new HTTP server instance
-func NewHTTPServer(mcpServer server.Server, addr string) *HTTPServer {
-	return &HTTPServer{
-		server:  mcpServer,
-		addr:    addr,
-		handler: NewHTTPHandler(mcpServer),
+// HTTPHandler handles HTTP requests for the MCP server
+type HTTPHandler struct {
+	service types.MCPService
+}
+
+// newHTTPHandler creates a new HTTP handler
+func newHTTPHandler(service types.MCPService) *HTTPHandler {
+	return &HTTPHandler{
+		service: service,
 	}
 }
 
-// Start starts the HTTP server
-func (s *HTTPServer) Start() error {
-	s.srv = &http.Server{
-		Addr:              s.addr,
-		Handler:           s.handler,
-		ReadHeaderTimeout: 10 * time.Second,
+func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/prompts":
+		h.handlePrompts(w, r)
+	case "/prompt":
+		h.handlePrompt(w, r)
+	case "/tools":
+		h.handleTools(w, r)
+	case "/tool":
+		h.handleTool(w, r)
+	case "/resources":
+		h.handleResources(w, r)
+	case "/resource":
+		h.handleResource(w, r)
+	default:
+		http.NotFound(w, r)
 	}
-	return s.srv.ListenAndServe()
 }
 
-// Shutdown gracefully shuts down the HTTP server
-func (s *HTTPServer) Shutdown(ctx context.Context) error {
-	if s.srv != nil {
-		return s.srv.Shutdown(ctx)
-	}
-	return nil
-}
-
-// Legacy HTTP handlers kept for backwards compatibility
-
-// Deprecated: Legacy handler kept for backwards compatibility
-func (s *HTTPServer) handlePrompts(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) handlePrompts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	prompts, err := s.server.ListPrompts(r.Context())
+	prompts, err := h.service.ListPrompts(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -65,8 +68,7 @@ func (s *HTTPServer) handlePrompts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Deprecated: Legacy handler kept for backwards compatibility
-func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) handlePrompt(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -82,7 +84,7 @@ func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.server.GetPrompt(r.Context(), req.Name, req.Arguments)
+	result, err := h.service.GetPrompt(r.Context(), req.Name, req.Arguments)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -93,14 +95,13 @@ func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Deprecated: Legacy handler kept for backwards compatibility
-func (s *HTTPServer) handleTools(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) handleTools(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	tools, err := s.server.ListTools(r.Context())
+	tools, err := h.service.ListTools(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -111,8 +112,7 @@ func (s *HTTPServer) handleTools(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Deprecated: Legacy handler kept for backwards compatibility
-func (s *HTTPServer) handleTool(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) handleTool(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -128,7 +128,7 @@ func (s *HTTPServer) handleTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.server.CallTool(r.Context(), req.Name, req.Arguments)
+	result, err := h.service.CallTool(r.Context(), req.Name, req.Arguments)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -139,14 +139,13 @@ func (s *HTTPServer) handleTool(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Deprecated: Legacy handler kept for backwards compatibility
-func (s *HTTPServer) handleResources(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) handleResources(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	resources, err := s.server.ListResources(r.Context())
+	resources, err := h.service.ListResources(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -157,8 +156,7 @@ func (s *HTTPServer) handleResources(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Deprecated: Legacy handler kept for backwards compatibility
-func (s *HTTPServer) handleResource(w http.ResponseWriter, r *http.Request) {
+func (h *HTTPHandler) handleResource(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -170,7 +168,7 @@ func (s *HTTPServer) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, mimeType, err := s.server.ReadResource(r.Context(), name)
+	content, mimeType, err := h.service.ReadResource(r.Context(), name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -179,5 +177,27 @@ func (s *HTTPServer) handleResource(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", mimeType)
 	if _, err := w.Write(content); err != nil {
 		log.Printf("Failed to write response: %v", err)
+	}
+}
+
+func (h *HTTPHandler) createSuccessResponse(result any) map[string]any {
+	response := map[string]any{
+		"success": true,
+	}
+
+	if result != nil {
+		response["result"] = result
+	}
+
+	return response
+}
+
+func (h *HTTPHandler) createErrorResponse(code, message string) map[string]any {
+	return map[string]any{
+		"success": false,
+		"error": map[string]any{
+			"code":    code,
+			"message": message,
+		},
 	}
 }

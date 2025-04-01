@@ -9,12 +9,12 @@ import (
 	"os"
 	"sync"
 
-	"github.com/virgoC0der/go-mcp/server"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
 // StdioServer wraps the stdio transport layer for an MCP server
 type StdioServer struct {
-	srv      server.Server
+	srv      types.Server
 	reader   io.Reader
 	writer   io.Writer
 	incoming chan []byte
@@ -41,12 +41,12 @@ type StdioResponse struct {
 }
 
 // NewStdioServer creates a new stdio server instance
-func NewStdioServer(srv server.Server) *StdioServer {
+func NewStdioServer(srv types.Server) *StdioServer {
 	return NewStdioServerWithIO(srv, os.Stdin, os.Stdout)
 }
 
 // NewStdioServerWithIO creates a new stdio server instance with custom I/O
-func NewStdioServerWithIO(srv server.Server, reader io.Reader, writer io.Writer) *StdioServer {
+func NewStdioServerWithIO(srv types.Server, reader io.Reader, writer io.Writer) *StdioServer {
 	return &StdioServer{
 		srv:      srv,
 		reader:   reader,

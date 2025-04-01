@@ -7,18 +7,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/virgoC0der/go-mcp/client"
+	"github.com/virgoC0der/go-mcp/internal/transport/client"
 )
 
 func main() {
 	// Create HTTP client
 	c := client.NewHTTPClient("http://localhost:8080")
-
-	// Initialize connection
-	err := c.Initialize(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to initialize client: %v", err)
-	}
 
 	// List available tools
 	tools, err := c.ListTools(context.Background())
@@ -57,12 +51,12 @@ func main() {
 	}
 
 	// Pretty print the result
-	prettyResult, _ := json.MarshalIndent(result.Content, "", "  ")
+	prettyResult, _ := json.MarshalIndent(result.Output, "", "  ")
 	fmt.Println("Weather information:")
 	fmt.Println(string(prettyResult))
 
 	// Parse and display important weather information
-	if resultMap, ok := result.Content.(map[string]any); ok {
+	if resultMap, ok := result.Output.(map[string]any); ok {
 		if resultData, ok := resultMap["result"].(map[string]any); ok {
 			// Get location information
 			if location, ok := resultData["location"].(map[string]any); ok {

@@ -1,14 +1,16 @@
-package transport
+package server
 
 import (
 	"context"
 
-	"github.com/virgoC0der/go-mcp/types"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
-// MockServer implements the Server interface for testing
+// MockServer implements Server interface for testing
 type MockServer struct {
 	initializeFunc    func(ctx context.Context, options any) error
+	startFunc         func() error
+	shutdownFunc      func(ctx context.Context) error
 	listPromptsFunc   func(ctx context.Context) ([]types.Prompt, error)
 	getPromptFunc     func(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error)
 	listToolsFunc     func(ctx context.Context) ([]types.Tool, error)
@@ -21,6 +23,22 @@ type MockServer struct {
 func (m *MockServer) Initialize(ctx context.Context, options any) error {
 	if m.initializeFunc != nil {
 		return m.initializeFunc(ctx, options)
+	}
+	return nil
+}
+
+// Start implements the Server interface for testing server start
+func (m *MockServer) Start() error {
+	if m.startFunc != nil {
+		return m.startFunc()
+	}
+	return nil
+}
+
+// Shutdown implements the Server interface for testing server shutdown
+func (m *MockServer) Shutdown(ctx context.Context) error {
+	if m.shutdownFunc != nil {
+		return m.shutdownFunc(ctx)
 	}
 	return nil
 }
