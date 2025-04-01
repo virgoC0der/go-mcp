@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gorilla/websocket v1.5.3
-	github.com/invopop/jsonschema v0.12.0
+	github.com/invopop/jsonschema v0.13.0
 )
 
 require (
