@@ -42,9 +42,10 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 
 			// Parse message
 			var request struct {
-				ID     string          `json:"id"`
-				Method string          `json:"method"`
-				Params json.RawMessage `json:"params,omitempty"`
+				Type      string          `json:"type"`
+				MessageId string          `json:"messageId"`
+				Method    string          `json:"method"`
+				Args      json.RawMessage `json:"args,omitempty"`
 			}
 			err = json.Unmarshal(message, &request)
 			if err != nil {
@@ -53,20 +54,25 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 			}
 
 			// Check request ID
-			if request.ID == "" {
-				t.Error("Missing id field in request")
+			if request.MessageId == "" {
+				t.Error("Missing messageId field in request")
 				continue
 			}
 
 			// Prepare response
 			response := struct {
-				ID      string          `json:"id"`
-				Success bool            `json:"success"`
-				Content json.RawMessage `json:"content,omitempty"`
-				Error   string          `json:"error,omitempty"`
+				Type      string          `json:"type"`
+				MessageId string          `json:"messageId"`
+				Success   bool            `json:"success"`
+				Result    json.RawMessage `json:"result,omitempty"`
+				Error     struct {
+					Code    string `json:"code,omitempty"`
+					Message string `json:"message,omitempty"`
+				} `json:"error,omitempty"`
 			}{
-				ID:      request.ID,
-				Success: true,
+				Type:      "response",
+				MessageId: request.MessageId,
+				Success:   true,
 			}
 
 			// Handle different request types
@@ -80,7 +86,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					Name      string                 `json:"name"`
 					Arguments map[string]interface{} `json:"arguments"`
 				}
-				err = json.Unmarshal(request.Params, &params)
+				err = json.Unmarshal(request.Args, &params)
 				if err != nil {
 					t.Fatalf("Failed to parse getPrompt params: %v", err)
 					continue
@@ -96,7 +102,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					Message:     "Hello, world!",
 				}
 				resultBytes, _ := json.Marshal(result)
-				response.Content = resultBytes
+				response.Result = resultBytes
 
 			case "callTool":
 				// Parse callTool parameters
@@ -104,7 +110,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					Name      string                 `json:"name"`
 					Arguments map[string]interface{} `json:"arguments"`
 				}
-				err = json.Unmarshal(request.Params, &params)
+				err = json.Unmarshal(request.Args, &params)
 				if err != nil {
 					t.Fatalf("Failed to parse callTool params: %v", err)
 					continue
@@ -121,7 +127,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					},
 				}
 				resultBytes, _ := json.Marshal(result)
-				response.Content = resultBytes
+				response.Result = resultBytes
 
 			case "listPrompts":
 				// Return prompts list
@@ -130,7 +136,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					{Name: "prompt2", Description: "Prompt 2"},
 				}
 				promptsBytes, _ := json.Marshal(prompts)
-				response.Content = promptsBytes
+				response.Result = promptsBytes
 
 			case "listTools":
 				// Return tools list
@@ -139,7 +145,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					{Name: "tool2", Description: "Tool 2"},
 				}
 				toolsBytes, _ := json.Marshal(tools)
-				response.Content = toolsBytes
+				response.Result = toolsBytes
 
 			case "listResources":
 				// Return resources list
@@ -148,14 +154,14 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					{Name: "resource2", Description: "Resource 2", MimeType: "application/json"},
 				}
 				resourcesBytes, _ := json.Marshal(resources)
-				response.Content = resourcesBytes
+				response.Result = resourcesBytes
 
 			case "readResource":
 				// Parse readResource parameters
 				var params struct {
 					Name string `json:"name"`
 				}
-				err = json.Unmarshal(request.Params, &params)
+				err = json.Unmarshal(request.Args, &params)
 				if err != nil {
 					t.Fatalf("Failed to parse readResource params: %v", err)
 					continue
@@ -171,12 +177,12 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 					"mimeType": "text/plain",
 				}
 				resultBytes, _ := json.Marshal(result)
-				response.Content = resultBytes
+				response.Result = resultBytes
 
 			default:
 				t.Errorf("Unexpected request method: %s", request.Method)
 				response.Success = false
-				response.Error = "Invalid request method"
+				response.Error.Message = "Invalid request method"
 			}
 
 			// Send response

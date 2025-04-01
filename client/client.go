@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -81,8 +82,7 @@ func (c *HTTPClient) Initialize(ctx context.Context) error {
 func (c *HTTPClient) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
 	// Create the request payload
 	payload := map[string]interface{}{
-		"name":      name,
-		"arguments": arguments,
+		"args": arguments,
 	}
 
 	// Encode the payload as JSON
@@ -95,7 +95,7 @@ func (c *HTTPClient) GetPrompt(ctx context.Context, name string, arguments map[s
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		c.baseURL+"prompt",
+		c.baseURL+"prompts/"+name,
 		strings.NewReader(string(payloadBytes)),
 	)
 	if err != nil {
@@ -123,9 +123,26 @@ func (c *HTTPClient) GetPrompt(ctx context.Context, name string, arguments map[s
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool                  `json:"success"`
+		Result  types.GetPromptResult `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return &wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as result
 	var result types.GetPromptResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -163,9 +180,26 @@ func (c *HTTPClient) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool           `json:"success"`
+		Result  []types.Prompt `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as prompt list
 	var prompts []types.Prompt
-	if err := json.NewDecoder(resp.Body).Decode(&prompts); err != nil {
+	if err := json.Unmarshal(respBody, &prompts); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -203,9 +237,26 @@ func (c *HTTPClient) ListPromptsPaginated(ctx context.Context, options types.Pag
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool                  `json:"success"`
+		Result  types.PaginatedResult `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return &wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as result
 	var result types.PaginatedResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -216,8 +267,7 @@ func (c *HTTPClient) ListPromptsPaginated(ctx context.Context, options types.Pag
 func (c *HTTPClient) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
 	// Create the request payload
 	payload := map[string]interface{}{
-		"name":      name,
-		"arguments": arguments,
+		"args": arguments,
 	}
 
 	// Encode the payload as JSON
@@ -230,7 +280,7 @@ func (c *HTTPClient) CallTool(ctx context.Context, name string, arguments map[st
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		c.baseURL+"tool",
+		c.baseURL+"tools/"+name,
 		strings.NewReader(string(payloadBytes)),
 	)
 	if err != nil {
@@ -258,9 +308,26 @@ func (c *HTTPClient) CallTool(ctx context.Context, name string, arguments map[st
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool                 `json:"success"`
+		Result  types.CallToolResult `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return &wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as result
 	var result types.CallToolResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -298,9 +365,26 @@ func (c *HTTPClient) ListTools(ctx context.Context) ([]types.Tool, error) {
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool         `json:"success"`
+		Result  []types.Tool `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as tool list
 	var tools []types.Tool
-	if err := json.NewDecoder(resp.Body).Decode(&tools); err != nil {
+	if err := json.Unmarshal(respBody, &tools); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -338,9 +422,26 @@ func (c *HTTPClient) ListToolsPaginated(ctx context.Context, options types.Pagin
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool                  `json:"success"`
+		Result  types.PaginatedResult `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return &wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as result
 	var result types.PaginatedResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -353,7 +454,7 @@ func (c *HTTPClient) ReadResource(ctx context.Context, name string) ([]byte, str
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		c.baseURL+"resource/"+name,
+		c.baseURL+"resources/"+name,
 		http.NoBody,
 	)
 	if err != nil {
@@ -378,16 +479,58 @@ func (c *HTTPClient) ReadResource(ctx context.Context, name string) ([]byte, str
 		return nil, "", fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Get the content type
+	// Check Content-Type header, if not application/json, it means the server returned resource content directly
 	contentType := resp.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		// Read response body directly
+		content, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to read response body: %w", err)
+		}
+		return content, contentType, nil
+	}
 
-	// Read the response body
-	var content []byte
-	if err := json.NewDecoder(resp.Body).Decode(&content); err != nil {
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// First try to parse as wrapped response format
+	var wrappedResponse struct {
+		Success bool `json:"success"`
+		Result  struct {
+			Content  string `json:"content"`
+			MimeType string `json:"mimeType"`
+		} `json:"result"`
+	}
+
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		// Decode Base64 content
+		content, err := base64.StdEncoding.DecodeString(wrappedResponse.Result.Content)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to decode base64 content: %w", err)
+		}
+		return content, wrappedResponse.Result.MimeType, nil
+	}
+
+	// If not a wrapped response, try to decode directly
+	var rawResponse struct {
+		Content  string `json:"content"`
+		MimeType string `json:"mimeType"`
+	}
+
+	if err := json.Unmarshal(respBody, &rawResponse); err != nil {
 		return nil, "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return content, contentType, nil
+	// Decode Base64 content
+	content, err := base64.StdEncoding.DecodeString(rawResponse.Content)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode base64 content: %w", err)
+	}
+
+	return content, rawResponse.MimeType, nil
 }
 
 // ListResources lists all available resources
@@ -421,9 +564,26 @@ func (c *HTTPClient) ListResources(ctx context.Context) ([]types.Resource, error
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool             `json:"success"`
+		Result  []types.Resource `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as resource list
 	var resources []types.Resource
-	if err := json.NewDecoder(resp.Body).Decode(&resources); err != nil {
+	if err := json.Unmarshal(respBody, &resources); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -461,9 +621,26 @@ func (c *HTTPClient) ListResourcesPaginated(ctx context.Context, options types.P
 		return nil, fmt.Errorf("server returned non-OK status: %s", resp.Status)
 	}
 
-	// Decode the response
+	// First try to decode as wrapped response format
+	var wrappedResponse struct {
+		Success bool                  `json:"success"`
+		Result  types.PaginatedResult `json:"result"`
+	}
+
+	// Decode response
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to decode as wrapped response
+	if err := json.Unmarshal(respBody, &wrappedResponse); err == nil && wrappedResponse.Success {
+		return &wrappedResponse.Result, nil
+	}
+
+	// If decoding as wrapped response fails, try to decode directly as result
 	var result types.PaginatedResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 

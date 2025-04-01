@@ -106,9 +106,9 @@ func testWebSocketEndpoints() {
 
 	// Test getting tools list
 	err = conn.WriteJSON(map[string]interface{}{
-		"type":   "request",
-		"id":     "1",
-		"method": "listTools",
+		"type":      "request",
+		"messageId": "1",
+		"method":    "listTools",
 	})
 	if err != nil {
 		log.Printf("Failed to send listTools request: %v", err)
@@ -118,13 +118,18 @@ func testWebSocketEndpoints() {
 	// Wait for response
 	select {
 	case response := <-responses:
-		if tools, ok := response["result"].([]interface{}); ok {
-			fmt.Println("Available tools:")
-			for _, t := range tools {
-				if tool, ok := t.(map[string]interface{}); ok {
-					fmt.Printf("- %s: %s\n", tool["name"], tool["description"])
+		if response["success"] == true {
+			// Check result field
+			if tools, ok := response["result"].([]interface{}); ok {
+				fmt.Println("Available tools:")
+				for _, t := range tools {
+					if tool, ok := t.(map[string]interface{}); ok {
+						fmt.Printf("- %s: %s\n", tool["name"], tool["description"])
+					}
 				}
 			}
+		} else {
+			log.Printf("Error response: %v", response["error"])
 		}
 	case <-time.After(5 * time.Second):
 		log.Println("Timeout waiting for listTools response")
@@ -133,14 +138,12 @@ func testWebSocketEndpoints() {
 
 	// Test calling a tool
 	err = conn.WriteJSON(map[string]interface{}{
-		"type":   "request",
-		"id":     "2",
-		"method": "callTool",
-		"arguments": map[string]interface{}{
-			"name": "echo",
-			"arguments": map[string]interface{}{
-				"message": "Hello from WebSocket client!",
-			},
+		"type":      "request",
+		"messageId": "2",
+		"method":    "callTool",
+		"name":      "echo",
+		"args": map[string]interface{}{
+			"message": "Hello from WebSocket client!",
 		},
 	})
 	if err != nil {
@@ -151,8 +154,15 @@ func testWebSocketEndpoints() {
 	// Wait for response
 	select {
 	case response := <-responses:
-		if result, ok := response["result"].(string); ok {
-			fmt.Printf("Tool response: %s\n", result)
+		if response["success"] == true {
+			// Check result field
+			if result, ok := response["result"].(map[string]interface{}); ok {
+				if content, ok := result["content"].(interface{}); ok {
+					fmt.Printf("Tool response: %v\n", content)
+				}
+			}
+		} else {
+			log.Printf("Error response: %v", response["error"])
 		}
 	case <-time.After(5 * time.Second):
 		log.Println("Timeout waiting for callTool response")

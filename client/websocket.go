@@ -53,10 +53,15 @@ func (c *WebSocketClient) readResponses() {
 
 		// Parse the response
 		var response struct {
-			ID      string          `json:"id"`
-			Success bool            `json:"success"`
-			Content json.RawMessage `json:"content"`
-			Error   string          `json:"error"`
+			Type      string          `json:"type"`
+			MessageId string          `json:"messageId"`
+			ID        string          `json:"id"`
+			Success   bool            `json:"success"`
+			Result    json.RawMessage `json:"result"`
+			Error     struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
 		}
 
 		if err := json.Unmarshal(message, &response); err != nil {
@@ -64,9 +69,15 @@ func (c *WebSocketClient) readResponses() {
 			continue
 		}
 
+		// Determine the ID to use
+		respID := response.ID
+		if respID == "" {
+			respID = response.MessageId
+		}
+
 		// Get the response channel for this ID
 		c.lock.Lock()
-		ch, ok := c.responses[response.ID]
+		ch, ok := c.responses[respID]
 		c.lock.Unlock()
 
 		if ok {
@@ -80,7 +91,7 @@ func (c *WebSocketClient) readResponses() {
 
 			// Delete the channel since we don't need it anymore
 			c.lock.Lock()
-			delete(c.responses, response.ID)
+			delete(c.responses, respID)
 			c.lock.Unlock()
 		}
 	}
@@ -96,13 +107,15 @@ func (c *WebSocketClient) sendRequest(method string, params interface{}) ([]byte
 
 	// Prepare the request
 	request := struct {
-		ID     string      `json:"id"`
-		Method string      `json:"method"`
-		Params interface{} `json:"params,omitempty"`
+		Type      string      `json:"type"`
+		MessageId string      `json:"messageId"`
+		Method    string      `json:"method"`
+		Args      interface{} `json:"args,omitempty"`
 	}{
-		ID:     id,
-		Method: method,
-		Params: params,
+		Type:      "request",
+		MessageId: id,
+		Method:    method,
+		Args:      params,
 	}
 
 	// Create a channel to receive the response
@@ -121,10 +134,14 @@ func (c *WebSocketClient) sendRequest(method string, params interface{}) ([]byte
 	case responseData := <-responseCh:
 		// Parse the response
 		var response struct {
-			ID      string          `json:"id"`
-			Success bool            `json:"success"`
-			Content json.RawMessage `json:"content"`
-			Error   string          `json:"error"`
+			Type      string          `json:"type"`
+			MessageId string          `json:"messageId"`
+			Success   bool            `json:"success"`
+			Result    json.RawMessage `json:"result"`
+			Error     struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
 		}
 
 		if err := json.Unmarshal(responseData, &response); err != nil {
@@ -132,10 +149,14 @@ func (c *WebSocketClient) sendRequest(method string, params interface{}) ([]byte
 		}
 
 		if !response.Success {
-			return nil, fmt.Errorf("request failed: %s", response.Error)
+			errorMsg := "unknown error"
+			if response.Error.Message != "" {
+				errorMsg = response.Error.Message
+			}
+			return nil, fmt.Errorf("request failed: %s", errorMsg)
 		}
 
-		return response.Content, nil
+		return response.Result, nil
 
 	case <-time.After(10 * time.Second):
 		// Remove the response channel
