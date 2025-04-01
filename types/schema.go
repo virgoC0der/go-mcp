@@ -17,20 +17,20 @@ func NewSchemaGenerator() *SchemaGenerator {
 }
 
 // GenerateSchema generates JSON Schema from a Go struct
-func (sg *SchemaGenerator) GenerateSchema(v interface{}) (map[string]interface{}, error) {
+func (sg *SchemaGenerator) GenerateSchema(v any) (map[string]any, error) {
 	reflector := jsonschema.Reflector{
 		RequiredFromJSONSchemaTags: true,
 		ExpandedStruct:             true,
 	}
 	schema := reflector.Reflect(v)
 
-	// Convert schema to map[string]interface{}
+	// Convert schema to map[string]any
 	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
 		return nil, err
 	}
 
-	var schemaMap map[string]interface{}
+	var schemaMap map[string]any
 	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (sg *SchemaGenerator) GenerateSchema(v interface{}) (map[string]interface{}
 }
 
 // GetArgumentNames extracts parameter names from a struct
-func (sg *SchemaGenerator) GetArgumentNames(v interface{}) []PromptArgument {
+func (sg *SchemaGenerator) GetArgumentNames(v any) []PromptArgument {
 	t := reflect.TypeOf(v)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()

@@ -99,7 +99,7 @@ func (h *WebSocketHandler) handleConnection(conn *websocket.Conn) {
 // handleMessage handles a WebSocket message
 func (h *WebSocketHandler) handleMessage(conn *websocket.Conn, message []byte) {
 	// Parse message
-	var request map[string]interface{}
+	var request map[string]any
 	err := json.Unmarshal(message, &request)
 	if err != nil {
 		h.sendErrorResponse(conn, "", "invalid_request", fmt.Sprintf("Failed to parse message: %v", err))
@@ -137,7 +137,7 @@ func (h *WebSocketHandler) handleMessage(conn *websocket.Conn, message []byte) {
 }
 
 // handleInitializeRequest handles an initialize request
-func (h *WebSocketHandler) handleInitializeRequest(conn *websocket.Conn, messageID string, request map[string]interface{}) {
+func (h *WebSocketHandler) handleInitializeRequest(conn *websocket.Conn, messageID string, request map[string]any) {
 	options, ok := request["data"]
 	if !ok {
 		h.sendErrorResponse(conn, messageID, "invalid_request", "Missing 'data' field")
@@ -173,14 +173,14 @@ func (h *WebSocketHandler) handleListPromptsRequest(conn *websocket.Conn, messag
 }
 
 // handleGetPromptRequest handles a get prompt request
-func (h *WebSocketHandler) handleGetPromptRequest(conn *websocket.Conn, messageID string, request map[string]interface{}) {
+func (h *WebSocketHandler) handleGetPromptRequest(conn *websocket.Conn, messageID string, request map[string]any) {
 	name, ok := request["name"].(string)
 	if !ok {
 		h.sendErrorResponse(conn, messageID, "invalid_request", "Missing 'name' field")
 		return
 	}
 
-	args, _ := request["args"].(map[string]interface{})
+	args, _ := request["args"].(map[string]any)
 
 	result, err := h.server.GetPrompt(context.Background(), name, args)
 	if err != nil {
@@ -211,14 +211,14 @@ func (h *WebSocketHandler) handleListToolsRequest(conn *websocket.Conn, messageI
 }
 
 // handleCallToolRequest handles a call tool request
-func (h *WebSocketHandler) handleCallToolRequest(conn *websocket.Conn, messageID string, request map[string]interface{}) {
+func (h *WebSocketHandler) handleCallToolRequest(conn *websocket.Conn, messageID string, request map[string]any) {
 	name, ok := request["name"].(string)
 	if !ok {
 		h.sendErrorResponse(conn, messageID, "invalid_request", "Missing 'name' field")
 		return
 	}
 
-	args, _ := request["args"].(map[string]interface{})
+	args, _ := request["args"].(map[string]any)
 
 	result, err := h.server.CallTool(context.Background(), name, args)
 	if err != nil {
@@ -249,7 +249,7 @@ func (h *WebSocketHandler) handleListResourcesRequest(conn *websocket.Conn, mess
 }
 
 // handleReadResourceRequest handles a read resource request
-func (h *WebSocketHandler) handleReadResourceRequest(conn *websocket.Conn, messageID string, request map[string]interface{}) {
+func (h *WebSocketHandler) handleReadResourceRequest(conn *websocket.Conn, messageID string, request map[string]any) {
 	name, ok := request["name"].(string)
 	if !ok {
 		h.sendErrorResponse(conn, messageID, "invalid_request", "Missing 'name' field")
@@ -269,15 +269,15 @@ func (h *WebSocketHandler) handleReadResourceRequest(conn *websocket.Conn, messa
 	// Base64 encode the content
 	encodedContent := base64.StdEncoding.EncodeToString(content)
 
-	h.sendSuccessResponse(conn, messageID, map[string]interface{}{
+	h.sendSuccessResponse(conn, messageID, map[string]any{
 		"content":  encodedContent,
 		"mimeType": mimeType,
 	})
 }
 
 // sendSuccessResponse sends a success response
-func (h *WebSocketHandler) sendSuccessResponse(conn *websocket.Conn, messageID string, result interface{}) {
-	response := map[string]interface{}{
+func (h *WebSocketHandler) sendSuccessResponse(conn *websocket.Conn, messageID string, result any) {
+	response := map[string]any{
 		"type":      "response",
 		"messageId": messageID,
 		"success":   true,
@@ -292,11 +292,11 @@ func (h *WebSocketHandler) sendSuccessResponse(conn *websocket.Conn, messageID s
 
 // sendErrorResponse sends an error response
 func (h *WebSocketHandler) sendErrorResponse(conn *websocket.Conn, messageID, code, message string) {
-	response := map[string]interface{}{
+	response := map[string]any{
 		"type":      "response",
 		"messageId": messageID,
 		"success":   false,
-		"error": map[string]interface{}{
+		"error": map[string]any{
 			"code":    code,
 			"message": message,
 		},
@@ -309,7 +309,7 @@ func (h *WebSocketHandler) sendErrorResponse(conn *websocket.Conn, messageID, co
 var requestCounter int64
 
 // sendResponse sends a response
-func (h *WebSocketHandler) sendResponse(conn *websocket.Conn, response map[string]interface{}) {
+func (h *WebSocketHandler) sendResponse(conn *websocket.Conn, response map[string]any) {
 	// Generate message ID if not present
 	if response["messageId"] == "" {
 		response["messageId"] = fmt.Sprintf("%d", atomic.AddInt64(&requestCounter, 1))

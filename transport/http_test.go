@@ -14,7 +14,7 @@ import (
 func TestHTTPHandler_Initialize(t *testing.T) {
 	// Create a mock server
 	mockServer := &MockServer{
-		initializeFunc: func(ctx context.Context, options interface{}) error {
+		initializeFunc: func(ctx context.Context, options any) error {
 			return nil
 		},
 	}
@@ -39,7 +39,7 @@ func TestHTTPHandler_Initialize(t *testing.T) {
 	}
 
 	// Check response body
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -50,7 +50,7 @@ func TestHTTPHandler_Initialize(t *testing.T) {
 	}
 
 	// Test with initialize error
-	mockServer.initializeFunc = func(ctx context.Context, options interface{}) error {
+	mockServer.initializeFunc = func(ctx context.Context, options any) error {
 		return types.NewError("initialize_error", "Failed to initialize")
 	}
 
@@ -79,7 +79,7 @@ func TestHTTPHandler_Initialize(t *testing.T) {
 		t.Error("Expected success to be false")
 	}
 
-	if errObj, ok := response["error"].(map[string]interface{}); !ok {
+	if errObj, ok := response["error"].(map[string]any); !ok {
 		t.Error("Expected error object in response")
 	} else {
 		if code, ok := errObj["code"].(string); !ok || code != "initialize_error" {
@@ -120,7 +120,7 @@ func TestHTTPHandler_ListPrompts(t *testing.T) {
 	}
 
 	// Check response body
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -130,7 +130,7 @@ func TestHTTPHandler_ListPrompts(t *testing.T) {
 		t.Error("Expected success to be true")
 	}
 
-	if result, ok := response["result"].([]interface{}); !ok {
+	if result, ok := response["result"].([]any); !ok {
 		t.Error("Expected result array in response")
 	} else if len(result) != 2 {
 		t.Errorf("Expected 2 prompts, got %d", len(result))
@@ -162,7 +162,7 @@ func TestHTTPHandler_ListPrompts(t *testing.T) {
 		t.Error("Expected success to be false")
 	}
 
-	if errObj, ok := response["error"].(map[string]interface{}); !ok {
+	if errObj, ok := response["error"].(map[string]any); !ok {
 		t.Error("Expected error object in response")
 	} else {
 		if code, ok := errObj["code"].(string); !ok || code != "list_prompts_error" {
@@ -174,7 +174,7 @@ func TestHTTPHandler_ListPrompts(t *testing.T) {
 func TestHTTPHandler_GetPrompt(t *testing.T) {
 	// Create a mock server
 	mockServer := &MockServer{
-		getPromptFunc: func(ctx context.Context, name string, args map[string]interface{}) (*types.GetPromptResult, error) {
+		getPromptFunc: func(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
 			return &types.GetPromptResult{
 				Description: "Test prompt",
 				Message:     "Hello, world!",
@@ -202,7 +202,7 @@ func TestHTTPHandler_GetPrompt(t *testing.T) {
 	}
 
 	// Check response body
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -212,7 +212,7 @@ func TestHTTPHandler_GetPrompt(t *testing.T) {
 		t.Error("Expected success to be true")
 	}
 
-	if result, ok := response["result"].(map[string]interface{}); !ok {
+	if result, ok := response["result"].(map[string]any); !ok {
 		t.Error("Expected result object in response")
 	} else {
 		if msg, ok := result["message"].(string); !ok || msg != "Hello, world!" {
@@ -221,7 +221,7 @@ func TestHTTPHandler_GetPrompt(t *testing.T) {
 	}
 
 	// Test with get prompt error
-	mockServer.getPromptFunc = func(ctx context.Context, name string, args map[string]interface{}) (*types.GetPromptResult, error) {
+	mockServer.getPromptFunc = func(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
 		return nil, types.NewError("get_prompt_error", "Failed to get prompt")
 	}
 
@@ -245,7 +245,7 @@ func TestHTTPHandler_GetPrompt(t *testing.T) {
 		t.Error("Expected success to be false")
 	}
 
-	if errObj, ok := response["error"].(map[string]interface{}); !ok {
+	if errObj, ok := response["error"].(map[string]any); !ok {
 		t.Error("Expected error object in response")
 	} else {
 		if code, ok := errObj["code"].(string); !ok || code != "get_prompt_error" {
@@ -286,7 +286,7 @@ func TestHTTPHandler_ListTools(t *testing.T) {
 	}
 
 	// Check response body
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -296,7 +296,7 @@ func TestHTTPHandler_ListTools(t *testing.T) {
 		t.Error("Expected success to be true")
 	}
 
-	if result, ok := response["result"].([]interface{}); !ok {
+	if result, ok := response["result"].([]any); !ok {
 		t.Error("Expected result array in response")
 	} else if len(result) != 2 {
 		t.Errorf("Expected 2 tools, got %d", len(result))
@@ -306,9 +306,9 @@ func TestHTTPHandler_ListTools(t *testing.T) {
 func TestHTTPHandler_CallTool(t *testing.T) {
 	// Create a mock server
 	mockServer := &MockServer{
-		callToolFunc: func(ctx context.Context, name string, args map[string]interface{}) (*types.CallToolResult, error) {
+		callToolFunc: func(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
 			return &types.CallToolResult{
-				Content: map[string]interface{}{
+				Content: map[string]any{
 					"message": "Tool executed successfully",
 				},
 			}, nil
@@ -335,7 +335,7 @@ func TestHTTPHandler_CallTool(t *testing.T) {
 	}
 
 	// Check response body
-	var response map[string]interface{}
+	var response map[string]any
 	err := json.Unmarshal(res.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -345,10 +345,10 @@ func TestHTTPHandler_CallTool(t *testing.T) {
 		t.Error("Expected success to be true")
 	}
 
-	if result, ok := response["result"].(map[string]interface{}); !ok {
+	if result, ok := response["result"].(map[string]any); !ok {
 		t.Error("Expected result object in response")
 	} else {
-		if content, ok := result["content"].(map[string]interface{}); !ok {
+		if content, ok := result["content"].(map[string]any); !ok {
 			t.Error("Expected content object in result")
 		} else {
 			if msg, ok := content["message"].(string); !ok || msg != "Tool executed successfully" {

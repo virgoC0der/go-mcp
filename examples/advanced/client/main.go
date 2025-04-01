@@ -41,7 +41,7 @@ func testHTTPClient() {
 	}
 
 	// Call a prompt
-	greetArgs := map[string]interface{}{
+	greetArgs := map[string]any{
 		"name":     "World",
 		"formal":   true,
 		"language": "fr",
@@ -68,7 +68,7 @@ func testHTTPClient() {
 	}
 
 	// Call a tool
-	calcArgs := map[string]interface{}{
+	calcArgs := map[string]any{
 		"operation": "multiply",
 		"a":         10.5,
 		"b":         2.0,
@@ -133,7 +133,7 @@ func testWebSocketClient() {
 	}
 
 	// Call a tool
-	calcArgs := map[string]interface{}{
+	calcArgs := map[string]any{
 		"operation": "add",
 		"a":         42,
 		"b":         58,
@@ -201,7 +201,7 @@ func testStdioClient() {
 	}
 
 	// Call a prompt
-	greetArgs := map[string]interface{}{
+	greetArgs := map[string]any{
 		"name":     "Stdio",
 		"language": "en",
 		"formal":   false,

@@ -11,25 +11,25 @@ func TestEchoServer_GetPrompt(t *testing.T) {
 	tests := []struct {
 		name       string
 		promptName string
-		args       map[string]interface{}
+		args       map[string]any
 		wantErr    bool
 	}{
 		{
 			name:       "valid echo prompt",
 			promptName: "echo",
-			args:       map[string]interface{}{"message": "hello"},
+			args:       map[string]any{"message": "hello"},
 			wantErr:    false,
 		},
 		{
 			name:       "unknown prompt",
 			promptName: "unknown",
-			args:       map[string]interface{}{"message": "hello"},
+			args:       map[string]any{"message": "hello"},
 			wantErr:    true,
 		},
 		{
 			name:       "missing message",
 			promptName: "echo",
-			args:       map[string]interface{}{},
+			args:       map[string]any{},
 			wantErr:    true,
 		},
 	}
@@ -54,25 +54,25 @@ func TestEchoServer_CallTool(t *testing.T) {
 	tests := []struct {
 		name     string
 		toolName string
-		args     map[string]interface{}
+		args     map[string]any
 		wantErr  bool
 	}{
 		{
 			name:     "valid echo tool",
 			toolName: "echo",
-			args:     map[string]interface{}{"message": "hello"},
+			args:     map[string]any{"message": "hello"},
 			wantErr:  false,
 		},
 		{
 			name:     "unknown tool",
 			toolName: "unknown",
-			args:     map[string]interface{}{"message": "hello"},
+			args:     map[string]any{"message": "hello"},
 			wantErr:  true,
 		},
 		{
 			name:     "missing message",
 			toolName: "echo",
-			args:     map[string]interface{}{},
+			args:     map[string]any{},
 			wantErr:  true,
 		},
 	}

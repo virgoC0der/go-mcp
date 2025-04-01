@@ -117,7 +117,7 @@ func (s *AdvancedServer) handleCalculatorTool(input CalculatorInput) (*types.Cal
 		return nil, fmt.Errorf("unknown operation: %s", input.Operation)
 	}
 
-	content := map[string]interface{}{
+	content := map[string]any{
 		"result":    result,
 		"operation": input.Operation,
 		"operands": map[string]float64{

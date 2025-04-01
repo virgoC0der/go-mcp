@@ -76,7 +76,7 @@ func (c *StdioClient) readResponses() {
 }
 
 // sendRequest sends a request to the server and waits for a response
-func (c *StdioClient) sendRequest(method string, params interface{}) ([]byte, error) {
+func (c *StdioClient) sendRequest(method string, params any) ([]byte, error) {
 	// Generate a request ID
 	c.lock.Lock()
 	id := fmt.Sprintf("req-%d", c.requestID)
@@ -85,10 +85,10 @@ func (c *StdioClient) sendRequest(method string, params interface{}) ([]byte, er
 
 	// Prepare the request
 	request := struct {
-		Type   string      `json:"type"`
-		ID     string      `json:"id"`
-		Method string      `json:"method"`
-		Params interface{} `json:"params,omitempty"`
+		Type   string `json:"type"`
+		ID     string `json:"id"`
+		Method string `json:"method"`
+		Params any    `json:"params,omitempty"`
 	}{
 		Type:   "request",
 		ID:     id,
@@ -135,7 +135,7 @@ func (c *StdioClient) sendRequest(method string, params interface{}) ([]byte, er
 // Initialize initializes the client
 func (c *StdioClient) Initialize(ctx context.Context) error {
 	// Send an initialize request
-	_, err := c.sendRequest("initialize", map[string]interface{}{})
+	_, err := c.sendRequest("initialize", map[string]any{})
 	if err != nil {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
@@ -162,11 +162,11 @@ func (c *StdioClient) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
 }
 
 // GetPrompt gets a prompt with the given name and arguments
-func (c *StdioClient) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
+func (c *StdioClient) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
 	// Send a getPrompt request
 	params := struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}{
 		Name:      name,
 		Arguments: arguments,
@@ -204,11 +204,11 @@ func (c *StdioClient) ListTools(ctx context.Context) ([]types.Tool, error) {
 }
 
 // CallTool calls a tool with the given name and arguments
-func (c *StdioClient) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (c *StdioClient) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
 	// Send a callTool request
 	params := struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}{
 		Name:      name,
 		Arguments: arguments,

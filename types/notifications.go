@@ -31,7 +31,7 @@ const (
 // Notification represents a notification about a change in the server
 type Notification struct {
 	Type NotificationType `json:"type"`
-	Item interface{}      `json:"item"`
+	Item any              `json:"item"`
 }
 
 // NotificationHandler is the interface for components that can receive notifications

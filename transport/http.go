@@ -73,8 +73,8 @@ func (s *HTTPServer) handlePrompt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -119,8 +119,8 @@ func (s *HTTPServer) handleTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

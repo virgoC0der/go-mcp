@@ -83,8 +83,8 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 			case "getPrompt":
 				// Parse getPrompt parameters
 				var params struct {
-					Name      string                 `json:"name"`
-					Arguments map[string]interface{} `json:"arguments"`
+					Name      string         `json:"name"`
+					Arguments map[string]any `json:"arguments"`
 				}
 				err = json.Unmarshal(request.Args, &params)
 				if err != nil {
@@ -107,8 +107,8 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 			case "callTool":
 				// Parse callTool parameters
 				var params struct {
-					Name      string                 `json:"name"`
-					Arguments map[string]interface{} `json:"arguments"`
+					Name      string         `json:"name"`
+					Arguments map[string]any `json:"arguments"`
 				}
 				err = json.Unmarshal(request.Args, &params)
 				if err != nil {
@@ -122,7 +122,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 
 				// Return tool result
 				result := types.CallToolResult{
-					Content: map[string]interface{}{
+					Content: map[string]any{
 						"message": "Tool executed successfully",
 					},
 				}
@@ -172,7 +172,7 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 				}
 
 				// Return resource content
-				result := map[string]interface{}{
+				result := map[string]any{
 					"content":  "cmVzb3VyY2UgY29udGVudA==", // base64 of "resource content"
 					"mimeType": "text/plain",
 				}
@@ -209,17 +209,17 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 	testCases := []struct {
 		name        string
 		requestType string
-		params      map[string]interface{}
-		validate    func(t *testing.T, result interface{}, err error)
+		params      map[string]any
+		validate    func(t *testing.T, result any, err error)
 	}{
 		{
 			name:        "Initialize",
 			requestType: "initialize",
-			params: map[string]interface{}{
+			params: map[string]any{
 				"serverName":    "test-server",
 				"serverVersion": "1.0.0",
 			},
-			validate: func(t *testing.T, result interface{}, err error) {
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -233,13 +233,13 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 		{
 			name:        "GetPrompt",
 			requestType: "getPrompt",
-			params: map[string]interface{}{
+			params: map[string]any{
 				"name": "test-prompt",
-				"args": map[string]interface{}{
+				"args": map[string]any{
 					"arg1": "value1",
 				},
 			},
-			validate: func(t *testing.T, result interface{}, err error) {
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -263,8 +263,8 @@ func TestWebSocketTransport_SendRequest(t *testing.T) {
 		{
 			name:        "ListPrompts",
 			requestType: "listPrompts",
-			params:      map[string]interface{}{},
-			validate: func(t *testing.T, result interface{}, err error) {
+			params:      map[string]any{},
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}

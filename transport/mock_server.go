@@ -8,17 +8,17 @@ import (
 
 // MockServer implements the Server interface for testing
 type MockServer struct {
-	initializeFunc    func(ctx context.Context, options interface{}) error
+	initializeFunc    func(ctx context.Context, options any) error
 	listPromptsFunc   func(ctx context.Context) ([]types.Prompt, error)
-	getPromptFunc     func(ctx context.Context, name string, args map[string]interface{}) (*types.GetPromptResult, error)
+	getPromptFunc     func(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error)
 	listToolsFunc     func(ctx context.Context) ([]types.Tool, error)
-	callToolFunc      func(ctx context.Context, name string, args map[string]interface{}) (*types.CallToolResult, error)
+	callToolFunc      func(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error)
 	listResourcesFunc func(ctx context.Context) ([]types.Resource, error)
 	readResourceFunc  func(ctx context.Context, name string) ([]byte, string, error)
 }
 
 // Initialize implements the Server interface for testing initialization
-func (m *MockServer) Initialize(ctx context.Context, options interface{}) error {
+func (m *MockServer) Initialize(ctx context.Context, options any) error {
 	if m.initializeFunc != nil {
 		return m.initializeFunc(ctx, options)
 	}
@@ -34,7 +34,7 @@ func (m *MockServer) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
 }
 
 // GetPrompt implements the Server interface for testing prompt retrieval
-func (m *MockServer) GetPrompt(ctx context.Context, name string, args map[string]interface{}) (*types.GetPromptResult, error) {
+func (m *MockServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
 	if m.getPromptFunc != nil {
 		return m.getPromptFunc(ctx, name, args)
 	}
@@ -50,7 +50,7 @@ func (m *MockServer) ListTools(ctx context.Context) ([]types.Tool, error) {
 }
 
 // CallTool implements the Server interface for testing tool invocation
-func (m *MockServer) CallTool(ctx context.Context, name string, args map[string]interface{}) (*types.CallToolResult, error) {
+func (m *MockServer) CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
 	if m.callToolFunc != nil {
 		return m.callToolFunc(ctx, name, args)
 	}

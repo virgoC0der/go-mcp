@@ -38,7 +38,7 @@ type Tool struct {
 	Name        string           `json:"name"`
 	Description string           `json:"description"`
 	Arguments   []PromptArgument `json:"arguments,omitempty"`
-	Schema      interface{}      `json:"schema,omitempty"`
+	Schema      any              `json:"schema,omitempty"`
 }
 
 // Resource represents a resource that can be accessed
@@ -66,5 +66,5 @@ type InitializationOptions struct {
 
 // CallToolResult represents the result of a CallTool operation
 type CallToolResult struct {
-	Content interface{} `json:"content"`
+	Content any `json:"content"`
 }

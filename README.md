@@ -129,7 +129,7 @@ func main() {
     }
     
     // Call a prompt
-    args := map[string]interface{}{
+    args := map[string]any{
         "name": "World",
         "formal": true,
     }

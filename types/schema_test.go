@@ -46,13 +46,13 @@ func TestSchemaGenerator_GenerateSchema(t *testing.T) {
 	}
 
 	// Check properties
-	props, ok := schema["properties"].(map[string]interface{})
+	props, ok := schema["properties"].(map[string]any)
 	if !ok {
 		t.Fatalf("Properties not found or not a map")
 	}
 
 	// Check name property
-	nameProp, ok := props["name"].(map[string]interface{})
+	nameProp, ok := props["name"].(map[string]any)
 	if !ok {
 		t.Fatalf("Name property not found or not a map")
 	}
@@ -61,7 +61,7 @@ func TestSchemaGenerator_GenerateSchema(t *testing.T) {
 	}
 
 	// Check required fields
-	required, ok := schema["required"].([]interface{})
+	required, ok := schema["required"].([]any)
 	if !ok {
 		t.Fatalf("Required fields not found or not an array")
 	}

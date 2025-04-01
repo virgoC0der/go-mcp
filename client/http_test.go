@@ -23,7 +23,7 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 			}
 
 			// Read request body
-			var requestBody map[string]interface{}
+			var requestBody map[string]any
 			decoder := json.NewDecoder(r.Body)
 			err := decoder.Decode(&requestBody)
 			if err != nil {
@@ -45,14 +45,14 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
 				})
 
 			case "/prompts/test-prompt":
 				// Check getPrompt parameters
-				if args, ok := requestBody["args"].(map[string]interface{}); !ok {
-					t.Error("Expected args parameter to be map[string]interface{}")
+				if args, ok := requestBody["args"].(map[string]any); !ok {
+					t.Error("Expected args parameter to be map[string]any")
 				} else if args["arg1"] != "value1" {
 					t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
 				}
@@ -60,9 +60,9 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response with result
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
-					"result": map[string]interface{}{
+					"result": map[string]any{
 						"description": "Test prompt",
 						"message":     "Hello, world!",
 					},
@@ -70,8 +70,8 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 
 			case "/tools/test-tool":
 				// Check callTool parameters
-				if args, ok := requestBody["args"].(map[string]interface{}); !ok {
-					t.Error("Expected args parameter to be map[string]interface{}")
+				if args, ok := requestBody["args"].(map[string]any); !ok {
+					t.Error("Expected args parameter to be map[string]any")
 				} else if args["arg1"] != "value1" {
 					t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
 				}
@@ -79,10 +79,10 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response with result
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
-					"result": map[string]interface{}{
-						"content": map[string]interface{}{
+					"result": map[string]any{
+						"content": map[string]any{
 							"message": "Tool executed successfully",
 						},
 					},
@@ -100,9 +100,9 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response with prompts
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
-					"result": []map[string]interface{}{
+					"result": []map[string]any{
 						{"name": "prompt1", "description": "Prompt 1"},
 						{"name": "prompt2", "description": "Prompt 2"},
 					},
@@ -112,9 +112,9 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response with tools
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
-					"result": []map[string]interface{}{
+					"result": []map[string]any{
 						{"name": "tool1", "description": "Tool 1"},
 						{"name": "tool2", "description": "Tool 2"},
 					},
@@ -124,9 +124,9 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response with resources
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
-					"result": []map[string]interface{}{
+					"result": []map[string]any{
 						{"name": "resource1", "description": "Resource 1", "mimeType": "text/plain"},
 						{"name": "resource2", "description": "Resource 2", "mimeType": "application/json"},
 					},
@@ -136,9 +136,9 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				// Return success response with resource content
 				w.WriteHeader(http.StatusOK)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				json.NewEncoder(w).Encode(map[string]any{
 					"success": true,
-					"result": map[string]interface{}{
+					"result": map[string]any{
 						"content":  "cmVzb3VyY2UgY29udGVudA==", // base64 of "resource content"
 						"mimeType": "text/plain",
 					},
@@ -163,17 +163,17 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 	testCases := []struct {
 		name        string
 		requestType string
-		params      map[string]interface{}
-		validate    func(t *testing.T, result interface{}, err error)
+		params      map[string]any
+		validate    func(t *testing.T, result any, err error)
 	}{
 		{
 			name:        "Initialize",
 			requestType: "initialize",
-			params: map[string]interface{}{
+			params: map[string]any{
 				"serverName":    "test-server",
 				"serverVersion": "1.0.0",
 			},
-			validate: func(t *testing.T, result interface{}, err error) {
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -187,13 +187,13 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 		{
 			name:        "GetPrompt",
 			requestType: "getPrompt",
-			params: map[string]interface{}{
+			params: map[string]any{
 				"name": "test-prompt",
-				"args": map[string]interface{}{
+				"args": map[string]any{
 					"arg1": "value1",
 				},
 			},
-			validate: func(t *testing.T, result interface{}, err error) {
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -217,13 +217,13 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 		{
 			name:        "CallTool",
 			requestType: "callTool",
-			params: map[string]interface{}{
+			params: map[string]any{
 				"name": "test-tool",
-				"args": map[string]interface{}{
+				"args": map[string]any{
 					"arg1": "value1",
 				},
 			},
-			validate: func(t *testing.T, result interface{}, err error) {
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -235,9 +235,9 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 				}
 
 				// Check result content
-				content, ok := r.Content.(map[string]interface{})
+				content, ok := r.Content.(map[string]any)
 				if !ok {
-					t.Fatalf("Expected content type map[string]interface{}, got %T", r.Content)
+					t.Fatalf("Expected content type map[string]any, got %T", r.Content)
 				}
 
 				message, ok := content["message"].(string)
@@ -253,8 +253,8 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 		{
 			name:        "ListPrompts",
 			requestType: "listPrompts",
-			params:      map[string]interface{}{},
-			validate: func(t *testing.T, result interface{}, err error) {
+			params:      map[string]any{},
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -283,8 +283,8 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 		{
 			name:        "ListTools",
 			requestType: "listTools",
-			params:      map[string]interface{}{},
-			validate: func(t *testing.T, result interface{}, err error) {
+			params:      map[string]any{},
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -313,8 +313,8 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 		{
 			name:        "ListResources",
 			requestType: "listResources",
-			params:      map[string]interface{}{},
-			validate: func(t *testing.T, result interface{}, err error) {
+			params:      map[string]any{},
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
@@ -343,18 +343,18 @@ func TestHTTPTransport_SendRequest(t *testing.T) {
 		{
 			name:        "ReadResource",
 			requestType: "readResource",
-			params: map[string]interface{}{
+			params: map[string]any{
 				"name": "test-resource",
 			},
-			validate: func(t *testing.T, result interface{}, err error) {
+			validate: func(t *testing.T, result any, err error) {
 				if err != nil {
 					t.Fatalf("SendRequest returned error: %v", err)
 				}
 
 				// Check result type
-				resource, ok := result.(map[string]interface{})
+				resource, ok := result.(map[string]any)
 				if !ok {
-					t.Fatalf("Expected result type map[string]interface{}, got %T", result)
+					t.Fatalf("Expected result type map[string]any, got %T", result)
 				}
 
 				// Check content and mimeType

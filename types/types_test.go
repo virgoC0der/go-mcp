@@ -61,10 +61,10 @@ func TestToolSerialization(t *testing.T) {
 				Required:    true,
 			},
 		},
-		Schema: map[string]interface{}{
+		Schema: map[string]any{
 			"type": "object",
-			"properties": map[string]interface{}{
-				"arg1": map[string]interface{}{
+			"properties": map[string]any{
+				"arg1": map[string]any{
 					"type":        "string",
 					"description": "Argument 1",
 				},
@@ -174,7 +174,7 @@ func TestGetPromptResultSerialization(t *testing.T) {
 func TestCallToolResultSerialization(t *testing.T) {
 	// Create a CallToolResult
 	result := CallToolResult{
-		Content: map[string]interface{}{
+		Content: map[string]any{
 			"key":    "value",
 			"number": 42,
 		},

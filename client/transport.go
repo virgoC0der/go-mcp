@@ -13,7 +13,7 @@ import (
 // Transport defines the interface for transport implementations
 type Transport interface {
 	// SendRequest sends a request to the server and returns the response
-	SendRequest(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error)
+	SendRequest(ctx context.Context, requestType string, params map[string]any) (any, error)
 
 	// Close closes the transport connection
 	Close() error
@@ -26,7 +26,7 @@ type HTTPTransport struct {
 }
 
 // SendRequest sends a request to the server and returns the response
-func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, params map[string]any) (any, error) {
 	var req *http.Request
 	var err error
 
@@ -67,10 +67,10 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 			return nil, fmt.Errorf("name parameter must be a string")
 		}
 
-		args, _ := params["args"].(map[string]interface{})
+		args, _ := params["args"].(map[string]any)
 
 		// Create the request payload
-		payload, err := json.Marshal(map[string]interface{}{
+		payload, err := json.Marshal(map[string]any{
 			"args": args,
 		})
 		if err != nil {
@@ -106,10 +106,10 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 			return nil, fmt.Errorf("name parameter must be a string")
 		}
 
-		args, _ := params["args"].(map[string]interface{})
+		args, _ := params["args"].(map[string]any)
 
 		// Create the request payload
-		payload, err := json.Marshal(map[string]interface{}{
+		payload, err := json.Marshal(map[string]any{
 			"args": args,
 		})
 		if err != nil {
@@ -181,7 +181,7 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 	}
 
 	// Parse the result based on the request type
-	var result interface{}
+	var result any
 
 	switch requestType {
 	case "initialize":
@@ -213,12 +213,12 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 		var toolResult types.CallToolResult
 		if err := json.Unmarshal(response.Result, &toolResult); err != nil {
 			// Try to decode as map first (the test server returns a different format)
-			var mapResult map[string]interface{}
+			var mapResult map[string]any
 			if innerErr := json.Unmarshal(response.Result, &mapResult); innerErr == nil {
-				if content, ok := mapResult["content"].(map[string]interface{}); ok {
+				if content, ok := mapResult["content"].(map[string]any); ok {
 					if message, ok := content["message"].(string); ok {
 						toolResult = types.CallToolResult{
-							Content: map[string]interface{}{
+							Content: map[string]any{
 								"message": message,
 							},
 						}
@@ -246,7 +246,7 @@ func (t *HTTPTransport) SendRequest(ctx context.Context, requestType string, par
 		if err := json.Unmarshal(response.Result, &resourceResult); err != nil {
 			return nil, fmt.Errorf("failed to decode resource result: %w", err)
 		}
-		result = map[string]interface{}{
+		result = map[string]any{
 			"content":  resourceResult.Content,
 			"mimeType": resourceResult.MimeType,
 		}
@@ -267,7 +267,7 @@ type WebSocketTransport struct {
 }
 
 // SendRequest sends a request to the server and returns the response
-func (t *WebSocketTransport) SendRequest(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+func (t *WebSocketTransport) SendRequest(ctx context.Context, requestType string, params map[string]any) (any, error) {
 	// For testing purposes, we'll delegate to the WebSocketClient
 	switch requestType {
 	case "initialize":
@@ -280,7 +280,7 @@ func (t *WebSocketTransport) SendRequest(ctx context.Context, requestType string
 			return nil, fmt.Errorf("name parameter must be a string")
 		}
 
-		args, _ := params["args"].(map[string]interface{})
+		args, _ := params["args"].(map[string]any)
 
 		return t.client.GetPrompt(ctx, name, args)
 	case "listTools":
@@ -291,7 +291,7 @@ func (t *WebSocketTransport) SendRequest(ctx context.Context, requestType string
 			return nil, fmt.Errorf("name parameter must be a string")
 		}
 
-		args, _ := params["args"].(map[string]interface{})
+		args, _ := params["args"].(map[string]any)
 
 		return t.client.CallTool(ctx, name, args)
 	case "listResources":
@@ -307,7 +307,7 @@ func (t *WebSocketTransport) SendRequest(ctx context.Context, requestType string
 			return nil, err
 		}
 
-		return map[string]interface{}{
+		return map[string]any{
 			"content":  content,
 			"mimeType": mimeType,
 		}, nil

@@ -19,7 +19,7 @@ func DefaultPaginationOptions() PaginationOptions {
 // PaginatedResult represents a paginated list of items
 type PaginatedResult struct {
 	// Items is the list of items for the current page
-	Items interface{} `json:"items"`
+	Items any `json:"items"`
 	// TotalItems is the total number of items across all pages
 	TotalItems int `json:"totalItems"`
 	// TotalPages is the total number of pages
@@ -31,7 +31,7 @@ type PaginatedResult struct {
 }
 
 // NewPaginatedResult creates a new paginated result
-func NewPaginatedResult(items interface{}, totalItems, pageSize, currentPage int) PaginatedResult {
+func NewPaginatedResult(items any, totalItems, pageSize, currentPage int) PaginatedResult {
 	totalPages := calculateTotalPages(totalItems, pageSize)
 
 	return PaginatedResult{
@@ -58,7 +58,7 @@ func calculateTotalPages(totalItems, pageSize int) int {
 }
 
 // ApplyPaginationToSlice applies pagination to a slice
-func ApplyPaginationToSlice(slice interface{}, options PaginationOptions) (interface{}, int, error) {
+func ApplyPaginationToSlice(slice any, options PaginationOptions) (any, int, error) {
 	// Implementation for slicing a generic slice based on pagination options
 	// This is a placeholder - actual implementation would require reflection
 	// to handle different slice types

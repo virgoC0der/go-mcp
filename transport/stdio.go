@@ -118,7 +118,7 @@ func (s *StdioServer) handleMessage(data []byte) {
 // handleInitialize handles initialize request
 func (s *StdioServer) handleInitialize(msg StdioMessage) {
 	// Parse initialization options
-	var opts map[string]interface{}
+	var opts map[string]any
 	if err := json.Unmarshal(msg.Params, &opts); err != nil {
 		s.sendError(msg.ID, fmt.Sprintf("Invalid initialization parameters: %v", err))
 		return
@@ -138,8 +138,8 @@ func (s *StdioServer) handleInitialize(msg StdioMessage) {
 func (s *StdioServer) handleGetPrompt(msg StdioMessage) {
 	// Parse parameters
 	var params struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		s.sendError(msg.ID, fmt.Sprintf("Invalid getPrompt parameters: %v", err))
@@ -188,8 +188,8 @@ func (s *StdioServer) handleListPrompts(msg StdioMessage) {
 func (s *StdioServer) handleCallTool(msg StdioMessage) {
 	// Parse parameters
 	var params struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}
 	if err := json.Unmarshal(msg.Params, &params); err != nil {
 		s.sendError(msg.ID, fmt.Sprintf("Invalid callTool parameters: %v", err))

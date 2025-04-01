@@ -15,10 +15,10 @@ import (
 // Server defines the interface for an MCP server
 type Server interface {
 	// Initialize initializes the server with the given options
-	Initialize(ctx context.Context, options interface{}) error
+	Initialize(ctx context.Context, options any) error
 
 	// GetPrompt retrieves a prompt with the given name and arguments
-	GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error)
+	GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error)
 
 	// ListPrompts lists all available prompts
 	ListPrompts(ctx context.Context) ([]types.Prompt, error)
@@ -27,7 +27,7 @@ type Server interface {
 	ListPromptsPaginated(ctx context.Context, options types.PaginationOptions) (*types.PaginatedResult, error)
 
 	// CallTool calls a tool with the given name and arguments
-	CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error)
+	CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error)
 
 	// ListTools lists all available tools
 	ListTools(ctx context.Context) ([]types.Tool, error)
@@ -48,7 +48,7 @@ type Server interface {
 	RegisterPrompt(prompt types.Prompt)
 
 	// RegisterPromptTyped registers a prompt with the server using a typed handler
-	RegisterPromptTyped(name string, description string, handler interface{}) error
+	RegisterPromptTyped(name string, description string, handler any) error
 
 	// RegisterTool registers a tool with the server
 	RegisterTool(tool types.Tool)
@@ -56,7 +56,7 @@ type Server interface {
 	// RegisterToolTyped registers a tool with the server using a typed handler
 	// handler must be a function that accepts a struct parameter and returns (*types.CallToolResult, error)
 	// This approach reduces the use of runtime reflection, improving performance
-	RegisterToolTyped(name string, description string, handler interface{}) error
+	RegisterToolTyped(name string, description string, handler any) error
 
 	// RegisterResource registers a resource with the server
 	RegisterResource(resource types.Resource)
@@ -82,12 +82,12 @@ type BaseServer struct {
 
 // TypedToolHandler defines the interface for tool processing functions
 type TypedToolHandler interface {
-	Execute(ctx context.Context, arguments map[string]interface{}) (*types.CallToolResult, error)
+	Execute(ctx context.Context, arguments map[string]any) (*types.CallToolResult, error)
 }
 
 // TypedPromptHandler defines the interface for prompt processing functions
 type TypedPromptHandler interface {
-	Execute(ctx context.Context, arguments map[string]interface{}) (*types.GetPromptResult, error)
+	Execute(ctx context.Context, arguments map[string]any) (*types.GetPromptResult, error)
 }
 
 // typedToolHandlerImpl is a generic implementation of TypedToolHandler
@@ -98,7 +98,7 @@ type typedToolHandlerImpl[T any] struct {
 }
 
 // Execute implements TypedToolHandler interface
-func (h *typedToolHandlerImpl[T]) Execute(ctx context.Context, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (h *typedToolHandlerImpl[T]) Execute(ctx context.Context, arguments map[string]any) (*types.CallToolResult, error) {
 	jsonData, err := json.Marshal(arguments)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal arguments: %w", err)
@@ -121,13 +121,13 @@ type PromptHandler[T any] func(request T) (*types.GetPromptResult, error)
 
 // genericToolHandlerImpl is a generic implementation of TypedToolHandler
 type genericToolHandlerImpl struct {
-	handler     interface{}
+	handler     any
 	handlerType reflect.Type
 	schemaGen   *types.SchemaGenerator
 }
 
 // Execute implements TypedToolHandler interface
-func (h *genericToolHandlerImpl) Execute(ctx context.Context, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (h *genericToolHandlerImpl) Execute(ctx context.Context, arguments map[string]any) (*types.CallToolResult, error) {
 	handlerValue := reflect.ValueOf(h.handler)
 
 	// If the handler function doesn't have parameters, call it directly
@@ -177,13 +177,13 @@ func (h *genericToolHandlerImpl) Execute(ctx context.Context, arguments map[stri
 
 // genericPromptHandlerImpl is a generic implementation of TypedPromptHandler
 type genericPromptHandlerImpl struct {
-	handler     interface{}
+	handler     any
 	handlerType reflect.Type
 	schemaGen   *types.SchemaGenerator
 }
 
 // Execute implements TypedPromptHandler interface
-func (h *genericPromptHandlerImpl) Execute(ctx context.Context, arguments map[string]interface{}) (*types.GetPromptResult, error) {
+func (h *genericPromptHandlerImpl) Execute(ctx context.Context, arguments map[string]any) (*types.GetPromptResult, error) {
 	handlerValue := reflect.ValueOf(h.handler)
 
 	// If the handler function doesn't have parameters, call it directly
@@ -242,12 +242,12 @@ func NewBaseServer(name, version string) *BaseServer {
 }
 
 // Initialize implements Server.Initialize
-func (s *BaseServer) Initialize(ctx context.Context, options interface{}) error {
+func (s *BaseServer) Initialize(ctx context.Context, options any) error {
 	// Check if options is of the right type
 	opts, ok := options.(types.InitializationOptions)
 	if !ok {
-		// Try to convert from map[string]interface{}
-		if optsMap, ok := options.(map[string]interface{}); ok {
+		// Try to convert from map[string]any
+		if optsMap, ok := options.(map[string]any); ok {
 			if serverName, ok := optsMap["serverName"].(string); ok {
 				s.name = serverName
 			}
@@ -267,7 +267,7 @@ func (s *BaseServer) Initialize(ctx context.Context, options interface{}) error 
 }
 
 // GetPrompt implements Server.GetPrompt
-func (s *BaseServer) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
+func (s *BaseServer) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
 	prompt, ok := s.prompts[name]
 	if !ok {
 		return nil, fmt.Errorf("prompt not found: %s", name)
@@ -324,7 +324,7 @@ func (s *BaseServer) ListPromptsPaginated(ctx context.Context, options types.Pag
 }
 
 // CallTool implements Server.CallTool
-func (s *BaseServer) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (s *BaseServer) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
 	_, ok := s.tools[name]
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %s", name)
@@ -342,7 +342,7 @@ func (s *BaseServer) CallTool(ctx context.Context, name string, arguments map[st
 }
 
 // fillStructFromMap fills the struct with values from the map
-func (s *BaseServer) fillStructFromMap(structValue reflect.Value, m map[string]interface{}) error {
+func (s *BaseServer) fillStructFromMap(structValue reflect.Value, m map[string]any) error {
 	structType := structValue.Type()
 	for i := 0; i < structValue.NumField(); i++ {
 		field := structValue.Field(i)
@@ -369,7 +369,7 @@ func (s *BaseServer) fillStructFromMap(structValue reflect.Value, m map[string]i
 }
 
 // setFieldValue sets the value of a struct field
-func (s *BaseServer) setFieldValue(field reflect.Value, value interface{}) error {
+func (s *BaseServer) setFieldValue(field reflect.Value, value any) error {
 	if !field.CanSet() {
 		return fmt.Errorf("field cannot be set")
 	}
@@ -544,7 +544,7 @@ func (s *BaseServer) RegisterPrompt(prompt types.Prompt) {
 }
 
 // RegisterPromptTyped implements Server.RegisterPromptTyped
-func (s *BaseServer) RegisterPromptTyped(name, description string, handler interface{}) error {
+func (s *BaseServer) RegisterPromptTyped(name, description string, handler any) error {
 	// Validate handler is a function
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
@@ -627,7 +627,7 @@ func (s *BaseServer) RegisterTool(tool types.Tool) {
 }
 
 // RegisterToolTyped implements Server.RegisterToolTyped
-func (s *BaseServer) RegisterToolTyped(name, description string, handler interface{}) error {
+func (s *BaseServer) RegisterToolTyped(name, description string, handler any) error {
 	// Validate handler is a function
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
@@ -660,7 +660,7 @@ func (s *BaseServer) RegisterToolTyped(name, description string, handler interfa
 
 	// Generate parameter schema and parameter descriptions
 	var args []types.PromptArgument
-	var schema interface{}
+	var schema any
 
 	// Only generate schema when handling struct parameters
 	if handlerType.NumIn() > 0 {
@@ -743,7 +743,7 @@ func (s *BaseServer) RegisterNotificationHandler(handler types.NotificationHandl
 //	})
 //
 // )
-func CreateToolHandler[T any](handler ToolHandler[T]) interface{} {
+func CreateToolHandler[T any](handler ToolHandler[T]) any {
 	return handler
 }
 
@@ -764,6 +764,6 @@ func CreateToolHandler[T any](handler ToolHandler[T]) interface{} {
 //	})
 //
 // )
-func CreatePromptHandler[T any](handler PromptHandler[T]) interface{} {
+func CreatePromptHandler[T any](handler PromptHandler[T]) any {
 	return handler
 }

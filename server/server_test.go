@@ -79,11 +79,11 @@ func TestBaseServer_Initialize(t *testing.T) {
 		t.Errorf("Expected server version to be updated to '1.0.0', got '%s'", srv.version)
 	}
 
-	// Test with map[string]interface{}
+	// Test with map[string]any
 	srv = NewBaseServer("old-name", "0.0.1")
 
 	// Initialize with map
-	err = srv.Initialize(context.Background(), map[string]interface{}{
+	err = srv.Initialize(context.Background(), map[string]any{
 		"serverName":    "map-name",
 		"serverVersion": "2.0.0",
 	})
@@ -363,7 +363,7 @@ func TestBaseServer_GetPrompt(t *testing.T) {
 	})
 
 	// Get prompt
-	result, err := srv.GetPrompt(context.Background(), "test-prompt", map[string]interface{}{
+	result, err := srv.GetPrompt(context.Background(), "test-prompt", map[string]any{
 		"arg1": "value1",
 	})
 
@@ -406,7 +406,7 @@ func TestBaseServer_CallTool(t *testing.T) {
 	})
 
 	// Call tool
-	result, err := srv.CallTool(context.Background(), "test-tool", map[string]interface{}{
+	result, err := srv.CallTool(context.Background(), "test-tool", map[string]any{
 		"arg1": "value1",
 	})
 

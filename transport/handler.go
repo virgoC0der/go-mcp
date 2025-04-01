@@ -14,11 +14,11 @@ import (
 
 // Server defines the interface for server implementations
 type Server interface {
-	Initialize(ctx context.Context, options interface{}) error
+	Initialize(ctx context.Context, options any) error
 	ListPrompts(ctx context.Context) ([]types.Prompt, error)
-	GetPrompt(ctx context.Context, name string, args map[string]interface{}) (*types.GetPromptResult, error)
+	GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error)
 	ListTools(ctx context.Context) ([]types.Tool, error)
-	CallTool(ctx context.Context, name string, args map[string]interface{}) (*types.CallToolResult, error)
+	CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error)
 	ListResources(ctx context.Context) ([]types.Resource, error)
 	ReadResource(ctx context.Context, name string) ([]byte, string, error)
 }
@@ -43,7 +43,7 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	pathParts := strings.Split(path, "/")
 
-	var response map[string]interface{}
+	var response map[string]any
 
 	switch {
 	case path == "initialize" && r.Method == http.MethodPost:
@@ -70,8 +70,8 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *HTTPHandler) handleInitialize(r *http.Request) map[string]interface{} {
-	var options map[string]interface{}
+func (h *HTTPHandler) handleInitialize(r *http.Request) map[string]any {
+	var options map[string]any
 	err := json.NewDecoder(r.Body).Decode(&options)
 	if err != nil {
 		return h.createErrorResponse("invalid_request", fmt.Sprintf("Failed to parse request body: %v", err))
@@ -88,7 +88,7 @@ func (h *HTTPHandler) handleInitialize(r *http.Request) map[string]interface{} {
 	return h.createSuccessResponse(nil)
 }
 
-func (h *HTTPHandler) handleListPrompts(r *http.Request) map[string]interface{} {
+func (h *HTTPHandler) handleListPrompts(r *http.Request) map[string]any {
 	prompts, err := h.server.ListPrompts(r.Context())
 	if err != nil {
 		if mcpErr, ok := err.(*types.Error); ok {
@@ -100,9 +100,9 @@ func (h *HTTPHandler) handleListPrompts(r *http.Request) map[string]interface{} 
 	return h.createSuccessResponse(prompts)
 }
 
-func (h *HTTPHandler) handleGetPrompt(r *http.Request, promptName string) map[string]interface{} {
+func (h *HTTPHandler) handleGetPrompt(r *http.Request, promptName string) map[string]any {
 	var req struct {
-		Args map[string]interface{} `json:"args"`
+		Args map[string]any `json:"args"`
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -121,7 +121,7 @@ func (h *HTTPHandler) handleGetPrompt(r *http.Request, promptName string) map[st
 	return h.createSuccessResponse(result)
 }
 
-func (h *HTTPHandler) handleListTools(r *http.Request) map[string]interface{} {
+func (h *HTTPHandler) handleListTools(r *http.Request) map[string]any {
 	tools, err := h.server.ListTools(r.Context())
 	if err != nil {
 		if mcpErr, ok := err.(*types.Error); ok {
@@ -133,9 +133,9 @@ func (h *HTTPHandler) handleListTools(r *http.Request) map[string]interface{} {
 	return h.createSuccessResponse(tools)
 }
 
-func (h *HTTPHandler) handleCallTool(r *http.Request, toolName string) map[string]interface{} {
+func (h *HTTPHandler) handleCallTool(r *http.Request, toolName string) map[string]any {
 	var req struct {
-		Args map[string]interface{} `json:"args"`
+		Args map[string]any `json:"args"`
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&req)
@@ -154,7 +154,7 @@ func (h *HTTPHandler) handleCallTool(r *http.Request, toolName string) map[strin
 	return h.createSuccessResponse(result)
 }
 
-func (h *HTTPHandler) handleListResources(r *http.Request) map[string]interface{} {
+func (h *HTTPHandler) handleListResources(r *http.Request) map[string]any {
 	resources, err := h.server.ListResources(r.Context())
 	if err != nil {
 		if mcpErr, ok := err.(*types.Error); ok {
@@ -166,7 +166,7 @@ func (h *HTTPHandler) handleListResources(r *http.Request) map[string]interface{
 	return h.createSuccessResponse(resources)
 }
 
-func (h *HTTPHandler) handleReadResource(r *http.Request, resourceName string) map[string]interface{} {
+func (h *HTTPHandler) handleReadResource(r *http.Request, resourceName string) map[string]any {
 	content, mimeType, err := h.server.ReadResource(r.Context(), resourceName)
 	if err != nil {
 		if mcpErr, ok := err.(*types.Error); ok {
@@ -178,14 +178,14 @@ func (h *HTTPHandler) handleReadResource(r *http.Request, resourceName string) m
 	// Base64 encode the content
 	encodedContent := base64.StdEncoding.EncodeToString(content)
 
-	return h.createSuccessResponse(map[string]interface{}{
+	return h.createSuccessResponse(map[string]any{
 		"content":  encodedContent,
 		"mimeType": mimeType,
 	})
 }
 
-func (h *HTTPHandler) createSuccessResponse(result interface{}) map[string]interface{} {
-	response := map[string]interface{}{
+func (h *HTTPHandler) createSuccessResponse(result any) map[string]any {
+	response := map[string]any{
 		"success": true,
 	}
 
@@ -196,10 +196,10 @@ func (h *HTTPHandler) createSuccessResponse(result interface{}) map[string]inter
 	return response
 }
 
-func (h *HTTPHandler) createErrorResponse(code, message string) map[string]interface{} {
-	return map[string]interface{}{
+func (h *HTTPHandler) createErrorResponse(code, message string) map[string]any {
+	return map[string]any{
 		"success": false,
-		"error": map[string]interface{}{
+		"error": map[string]any{
 			"code":    code,
 			"message": message,
 		},

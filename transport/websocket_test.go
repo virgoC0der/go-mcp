@@ -14,7 +14,7 @@ import (
 func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 	// Create a mock server
 	mockServer := &MockServer{
-		initializeFunc: func(ctx context.Context, options interface{}) error {
+		initializeFunc: func(ctx context.Context, options any) error {
 			return nil
 		},
 	}
@@ -41,10 +41,10 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 	defer conn.Close()
 
 	// Send initialize request
-	initRequest := map[string]interface{}{
+	initRequest := map[string]any{
 		"type":      "initialize",
 		"messageId": "1",
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"serverName":    "test-server",
 			"serverVersion": "1.0.0",
 		},
@@ -56,7 +56,7 @@ func TestWebSocketHandler_ServeHTTP(t *testing.T) {
 	}
 
 	// Read response
-	var response map[string]interface{}
+	var response map[string]any
 	err = conn.ReadJSON(&response)
 	if err != nil {
 		t.Fatalf("Failed to read response: %v", err)
@@ -85,7 +85,7 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 				{Name: "prompt2", Description: "Prompt 2"},
 			}, nil
 		},
-		getPromptFunc: func(ctx context.Context, name string, args map[string]interface{}) (*types.GetPromptResult, error) {
+		getPromptFunc: func(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
 			return &types.GetPromptResult{
 				Description: "Test prompt",
 				Message:     "Hello, world!",
@@ -97,9 +97,9 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 				{Name: "tool2", Description: "Tool 2"},
 			}, nil
 		},
-		callToolFunc: func(ctx context.Context, name string, args map[string]interface{}) (*types.CallToolResult, error) {
+		callToolFunc: func(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
 			return &types.CallToolResult{
-				Content: map[string]interface{}{
+				Content: map[string]any{
 					"message": "Tool executed successfully",
 				},
 			}, nil
@@ -137,21 +137,21 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 	// Test listPrompts
 	testCases := []struct {
 		name          string
-		request       map[string]interface{}
-		checkResponse func(t *testing.T, response map[string]interface{})
+		request       map[string]any
+		checkResponse func(t *testing.T, response map[string]any)
 	}{
 		{
 			name: "listPrompts",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "listPrompts",
 				"messageId": "1",
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || !success {
 					t.Error("Expected success to be true")
 				}
 
-				if result, ok := response["result"].([]interface{}); !ok {
+				if result, ok := response["result"].([]any); !ok {
 					t.Error("Expected result array in response")
 				} else if len(result) != 2 {
 					t.Errorf("Expected 2 prompts, got %d", len(result))
@@ -160,18 +160,18 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "getPrompt",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "getPrompt",
 				"messageId": "2",
 				"name":      "test-prompt",
-				"args":      map[string]interface{}{"arg1": "value1"},
+				"args":      map[string]any{"arg1": "value1"},
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || !success {
 					t.Error("Expected success to be true")
 				}
 
-				if result, ok := response["result"].(map[string]interface{}); !ok {
+				if result, ok := response["result"].(map[string]any); !ok {
 					t.Error("Expected result object in response")
 				} else {
 					if msg, ok := result["message"].(string); !ok || msg != "Hello, world!" {
@@ -182,16 +182,16 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "listTools",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "listTools",
 				"messageId": "3",
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || !success {
 					t.Error("Expected success to be true")
 				}
 
-				if result, ok := response["result"].([]interface{}); !ok {
+				if result, ok := response["result"].([]any); !ok {
 					t.Error("Expected result array in response")
 				} else if len(result) != 2 {
 					t.Errorf("Expected 2 tools, got %d", len(result))
@@ -200,21 +200,21 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "callTool",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "callTool",
 				"messageId": "4",
 				"name":      "test-tool",
-				"args":      map[string]interface{}{"arg1": "value1"},
+				"args":      map[string]any{"arg1": "value1"},
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || !success {
 					t.Error("Expected success to be true")
 				}
 
-				if result, ok := response["result"].(map[string]interface{}); !ok {
+				if result, ok := response["result"].(map[string]any); !ok {
 					t.Error("Expected result object in response")
 				} else {
-					if content, ok := result["content"].(map[string]interface{}); !ok {
+					if content, ok := result["content"].(map[string]any); !ok {
 						t.Error("Expected content object in result")
 					} else {
 						if msg, ok := content["message"].(string); !ok || msg != "Tool executed successfully" {
@@ -226,16 +226,16 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "listResources",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "listResources",
 				"messageId": "5",
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || !success {
 					t.Error("Expected success to be true")
 				}
 
-				if result, ok := response["result"].([]interface{}); !ok {
+				if result, ok := response["result"].([]any); !ok {
 					t.Error("Expected result array in response")
 				} else if len(result) != 2 {
 					t.Errorf("Expected 2 resources, got %d", len(result))
@@ -244,17 +244,17 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "readResource",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "readResource",
 				"messageId": "6",
 				"name":      "test-resource",
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || !success {
 					t.Error("Expected success to be true")
 				}
 
-				if result, ok := response["result"].(map[string]interface{}); !ok {
+				if result, ok := response["result"].(map[string]any); !ok {
 					t.Error("Expected result object in response")
 				} else {
 					if content, ok := result["content"].(string); !ok || content != "cmVzb3VyY2UgY29udGVudA==" { // base64 of "resource content"
@@ -269,16 +269,16 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "invalidType",
-			request: map[string]interface{}{
+			request: map[string]any{
 				"type":      "invalidType",
 				"messageId": "7",
 			},
-			checkResponse: func(t *testing.T, response map[string]interface{}) {
+			checkResponse: func(t *testing.T, response map[string]any) {
 				if success, ok := response["success"].(bool); !ok || success {
 					t.Error("Expected success to be false")
 				}
 
-				if errObj, ok := response["error"].(map[string]interface{}); !ok {
+				if errObj, ok := response["error"].(map[string]any); !ok {
 					t.Error("Expected error object in response")
 				} else {
 					if code, ok := errObj["code"].(string); !ok || code != "invalid_request" {
@@ -298,7 +298,7 @@ func TestWebSocketHandler_HandleRequest(t *testing.T) {
 			}
 
 			// Read response
-			var response map[string]interface{}
+			var response map[string]any
 			err = conn.ReadJSON(&response)
 			if err != nil {
 				t.Fatalf("Failed to read response: %v", err)

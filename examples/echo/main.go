@@ -56,7 +56,7 @@ func NewEchoServer() *EchoServer {
 }
 
 // GetPrompt implements the prompt handler for the echo server
-func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
+func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
@@ -81,7 +81,7 @@ func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[s
 }
 
 // CallTool implements the tool handler for the echo server
-func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
@@ -92,7 +92,7 @@ func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[st
 	}
 
 	return &types.CallToolResult{
-		Content: map[string]interface{}{
+		Content: map[string]any{
 			"message": fmt.Sprintf("Echo: %s", message),
 		},
 	}, nil

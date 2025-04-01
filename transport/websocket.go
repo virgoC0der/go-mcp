@@ -32,10 +32,10 @@ type Message struct {
 
 // Response represents the structure of a WebSocket response
 type Response struct {
-	Type   string      `json:"type"`
-	ID     string      `json:"id"`
-	Result interface{} `json:"result,omitempty"`
-	Error  string      `json:"error,omitempty"`
+	Type   string `json:"type"`
+	ID     string `json:"id"`
+	Result any    `json:"result,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
 // NewWSServer creates a new WebSocket server instance
@@ -112,8 +112,8 @@ func (s *WSServer) handleMessage(ctx context.Context, conn *websocket.Conn, msg 
 
 	case "getPrompt":
 		var args struct {
-			Name      string                 `json:"name"`
-			Arguments map[string]interface{} `json:"arguments"`
+			Name      string         `json:"name"`
+			Arguments map[string]any `json:"arguments"`
 		}
 		if err := json.Unmarshal(msg.Arguments, &args); err != nil {
 			response.Error = err.Error()
@@ -137,8 +137,8 @@ func (s *WSServer) handleMessage(ctx context.Context, conn *websocket.Conn, msg 
 
 	case "callTool":
 		var args struct {
-			Name      string                 `json:"name"`
-			Arguments map[string]interface{} `json:"arguments"`
+			Name      string         `json:"name"`
+			Arguments map[string]any `json:"arguments"`
 		}
 		if err := json.Unmarshal(msg.Arguments, &args); err != nil {
 			response.Error = err.Error()
@@ -173,7 +173,7 @@ func (s *WSServer) handleMessage(ctx context.Context, conn *websocket.Conn, msg 
 		if err != nil {
 			response.Error = err.Error()
 		} else {
-			response.Result = map[string]interface{}{
+			response.Result = map[string]any{
 				"content":  content,
 				"mimeType": mimeType,
 			}

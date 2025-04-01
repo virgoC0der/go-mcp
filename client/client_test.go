@@ -10,11 +10,11 @@ import (
 
 // MockTransport implements the Transport interface for testing
 type MockTransport struct {
-	sendRequestFunc func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error)
+	sendRequestFunc func(ctx context.Context, requestType string, params map[string]any) (any, error)
 	closeFunc       func() error
 }
 
-func (m *MockTransport) SendRequest(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+func (m *MockTransport) SendRequest(ctx context.Context, requestType string, params map[string]any) (any, error) {
 	return m.sendRequestFunc(ctx, requestType, params)
 }
 
@@ -25,7 +25,7 @@ func (m *MockTransport) Close() error {
 func TestClient_Initialize(t *testing.T) {
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "initialize" {
 				t.Errorf("Expected request type 'initialize', got '%s'", requestType)
@@ -65,7 +65,7 @@ func TestClient_ListPrompts(t *testing.T) {
 
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "listPrompts" {
 				t.Errorf("Expected request type 'listPrompts', got '%s'", requestType)
@@ -111,7 +111,7 @@ func TestClient_GetPrompt(t *testing.T) {
 
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "getPrompt" {
 				t.Errorf("Expected request type 'getPrompt', got '%s'", requestType)
@@ -122,8 +122,8 @@ func TestClient_GetPrompt(t *testing.T) {
 				t.Errorf("Expected name 'test-prompt', got '%v'", params["name"])
 			}
 
-			if args, ok := params["args"].(map[string]interface{}); !ok {
-				t.Error("Expected args parameter to be map[string]interface{}")
+			if args, ok := params["args"].(map[string]any); !ok {
+				t.Error("Expected args parameter to be map[string]any")
 			} else if args["arg1"] != "value1" {
 				t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
 			}
@@ -136,7 +136,7 @@ func TestClient_GetPrompt(t *testing.T) {
 	client := NewClient(mockTransport)
 
 	// Get prompt
-	result, err := client.GetPrompt(context.Background(), "test-prompt", map[string]interface{}{
+	result, err := client.GetPrompt(context.Background(), "test-prompt", map[string]any{
 		"arg1": "value1",
 	})
 
@@ -164,7 +164,7 @@ func TestClient_ListTools(t *testing.T) {
 
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "listTools" {
 				t.Errorf("Expected request type 'listTools', got '%s'", requestType)
@@ -204,14 +204,14 @@ func TestClient_ListTools(t *testing.T) {
 func TestClient_CallTool(t *testing.T) {
 	// Create mock result
 	mockResult := &types.CallToolResult{
-		Content: map[string]interface{}{
+		Content: map[string]any{
 			"message": "Tool executed successfully",
 		},
 	}
 
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "callTool" {
 				t.Errorf("Expected request type 'callTool', got '%s'", requestType)
@@ -222,8 +222,8 @@ func TestClient_CallTool(t *testing.T) {
 				t.Errorf("Expected name 'test-tool', got '%v'", params["name"])
 			}
 
-			if args, ok := params["args"].(map[string]interface{}); !ok {
-				t.Error("Expected args parameter to be map[string]interface{}")
+			if args, ok := params["args"].(map[string]any); !ok {
+				t.Error("Expected args parameter to be map[string]any")
 			} else if args["arg1"] != "value1" {
 				t.Errorf("Expected arg1 'value1', got '%v'", args["arg1"])
 			}
@@ -236,7 +236,7 @@ func TestClient_CallTool(t *testing.T) {
 	client := NewClient(mockTransport)
 
 	// Call tool
-	result, err := client.CallTool(context.Background(), "test-tool", map[string]interface{}{
+	result, err := client.CallTool(context.Background(), "test-tool", map[string]any{
 		"arg1": "value1",
 	})
 
@@ -274,7 +274,7 @@ func TestClient_ListResources(t *testing.T) {
 
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "listResources" {
 				t.Errorf("Expected request type 'listResources', got '%s'", requestType)
@@ -322,7 +322,7 @@ func TestClient_ReadResource(t *testing.T) {
 
 	// Create mock transport
 	mockTransport := &MockTransport{
-		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]interface{}) (interface{}, error) {
+		sendRequestFunc: func(ctx context.Context, requestType string, params map[string]any) (any, error) {
 			// Check request type
 			if requestType != "readResource" {
 				t.Errorf("Expected request type 'readResource', got '%s'", requestType)
@@ -333,7 +333,7 @@ func TestClient_ReadResource(t *testing.T) {
 				t.Errorf("Expected name 'test-resource', got '%v'", params["name"])
 			}
 
-			return map[string]interface{}{
+			return map[string]any{
 				"content":  "cmVzb3VyY2UgY29udGVudA==", // base64 of "resource content"
 				"mimeType": mockMimeType,
 			}, nil

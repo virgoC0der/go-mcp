@@ -18,7 +18,7 @@ type Client interface {
 	Initialize(ctx context.Context) error
 
 	// GetPrompt retrieves a prompt with the given name and arguments
-	GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error)
+	GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error)
 
 	// ListPrompts lists all available prompts
 	ListPrompts(ctx context.Context) ([]types.Prompt, error)
@@ -27,7 +27,7 @@ type Client interface {
 	ListPromptsPaginated(ctx context.Context, options types.PaginationOptions) (*types.PaginatedResult, error)
 
 	// CallTool calls a tool with the given name and arguments
-	CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error)
+	CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error)
 
 	// ListTools lists all available tools
 	ListTools(ctx context.Context) ([]types.Tool, error)
@@ -79,9 +79,9 @@ func (c *HTTPClient) Initialize(ctx context.Context) error {
 }
 
 // GetPrompt retrieves a prompt with the given name and arguments
-func (c *HTTPClient) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
+func (c *HTTPClient) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
 	// Create the request payload
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"args": arguments,
 	}
 
@@ -264,9 +264,9 @@ func (c *HTTPClient) ListPromptsPaginated(ctx context.Context, options types.Pag
 }
 
 // CallTool calls a tool with the given name and arguments
-func (c *HTTPClient) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (c *HTTPClient) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
 	// Create the request payload
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"args": arguments,
 	}
 
@@ -667,7 +667,7 @@ func NewClient(transport Transport) Client {
 
 // Initialize initializes the client connection
 func (c *BaseClient) Initialize(ctx context.Context) error {
-	_, err := c.transport.SendRequest(ctx, "initialize", map[string]interface{}{
+	_, err := c.transport.SendRequest(ctx, "initialize", map[string]any{
 		"serverName":    "client",
 		"serverVersion": "1.0.0",
 	})
@@ -675,8 +675,8 @@ func (c *BaseClient) Initialize(ctx context.Context) error {
 }
 
 // GetPrompt retrieves a prompt with the given name and arguments
-func (c *BaseClient) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
-	resp, err := c.transport.SendRequest(ctx, "getPrompt", map[string]interface{}{
+func (c *BaseClient) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
+	resp, err := c.transport.SendRequest(ctx, "getPrompt", map[string]any{
 		"name": name,
 		"args": arguments,
 	})
@@ -711,7 +711,7 @@ func (c *BaseClient) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
 
 // ListPromptsPaginated lists prompts with pagination
 func (c *BaseClient) ListPromptsPaginated(ctx context.Context, options types.PaginationOptions) (*types.PaginatedResult, error) {
-	resp, err := c.transport.SendRequest(ctx, "listPrompts", map[string]interface{}{
+	resp, err := c.transport.SendRequest(ctx, "listPrompts", map[string]any{
 		"page":     options.Page,
 		"pageSize": options.PageSize,
 	})
@@ -729,8 +729,8 @@ func (c *BaseClient) ListPromptsPaginated(ctx context.Context, options types.Pag
 }
 
 // CallTool calls a tool with the given name and arguments
-func (c *BaseClient) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
-	resp, err := c.transport.SendRequest(ctx, "callTool", map[string]interface{}{
+func (c *BaseClient) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
+	resp, err := c.transport.SendRequest(ctx, "callTool", map[string]any{
 		"name": name,
 		"args": arguments,
 	})
@@ -765,7 +765,7 @@ func (c *BaseClient) ListTools(ctx context.Context) ([]types.Tool, error) {
 
 // ListToolsPaginated lists tools with pagination
 func (c *BaseClient) ListToolsPaginated(ctx context.Context, options types.PaginationOptions) (*types.PaginatedResult, error) {
-	resp, err := c.transport.SendRequest(ctx, "listTools", map[string]interface{}{
+	resp, err := c.transport.SendRequest(ctx, "listTools", map[string]any{
 		"page":     options.Page,
 		"pageSize": options.PageSize,
 	})
@@ -784,7 +784,7 @@ func (c *BaseClient) ListToolsPaginated(ctx context.Context, options types.Pagin
 
 // ReadResource reads a resource with the given name
 func (c *BaseClient) ReadResource(ctx context.Context, name string) ([]byte, string, error) {
-	resp, err := c.transport.SendRequest(ctx, "readResource", map[string]interface{}{
+	resp, err := c.transport.SendRequest(ctx, "readResource", map[string]any{
 		"name": name,
 	})
 	if err != nil {
@@ -792,7 +792,7 @@ func (c *BaseClient) ReadResource(ctx context.Context, name string) ([]byte, str
 	}
 
 	// Convert response to resource data
-	resourceResp, ok := resp.(map[string]interface{})
+	resourceResp, ok := resp.(map[string]any)
 	if !ok {
 		return nil, "", fmt.Errorf("unexpected response type: %T", resp)
 	}
@@ -834,7 +834,7 @@ func (c *BaseClient) ListResources(ctx context.Context) ([]types.Resource, error
 
 // ListResourcesPaginated lists resources with pagination
 func (c *BaseClient) ListResourcesPaginated(ctx context.Context, options types.PaginationOptions) (*types.PaginatedResult, error) {
-	resp, err := c.transport.SendRequest(ctx, "listResources", map[string]interface{}{
+	resp, err := c.transport.SendRequest(ctx, "listResources", map[string]any{
 		"page":     options.Page,
 		"pageSize": options.PageSize,
 	})

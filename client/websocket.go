@@ -98,7 +98,7 @@ func (c *WebSocketClient) readResponses() {
 }
 
 // sendRequest sends a request to the server and waits for a response
-func (c *WebSocketClient) sendRequest(method string, params interface{}) ([]byte, error) {
+func (c *WebSocketClient) sendRequest(method string, params any) ([]byte, error) {
 	// Generate a request ID
 	c.lock.Lock()
 	id := fmt.Sprintf("req-%d", c.requestID)
@@ -107,10 +107,10 @@ func (c *WebSocketClient) sendRequest(method string, params interface{}) ([]byte
 
 	// Prepare the request
 	request := struct {
-		Type      string      `json:"type"`
-		MessageId string      `json:"messageId"`
-		Method    string      `json:"method"`
-		Args      interface{} `json:"args,omitempty"`
+		Type      string `json:"type"`
+		MessageId string `json:"messageId"`
+		Method    string `json:"method"`
+		Args      any    `json:"args,omitempty"`
 	}{
 		Type:      "request",
 		MessageId: id,
@@ -171,7 +171,7 @@ func (c *WebSocketClient) sendRequest(method string, params interface{}) ([]byte
 // Initialize initializes the client connection
 func (c *WebSocketClient) Initialize(ctx context.Context) error {
 	// Send an initialize request
-	_, err := c.sendRequest("initialize", map[string]interface{}{})
+	_, err := c.sendRequest("initialize", map[string]any{})
 	if err != nil {
 		return fmt.Errorf("initialization failed: %w", err)
 	}
@@ -215,11 +215,11 @@ func (c *WebSocketClient) ListPromptsPaginated(ctx context.Context, options type
 }
 
 // GetPrompt gets a prompt with the given name and arguments
-func (c *WebSocketClient) GetPrompt(ctx context.Context, name string, arguments map[string]interface{}) (*types.GetPromptResult, error) {
+func (c *WebSocketClient) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
 	// Send a getPrompt request
 	params := struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}{
 		Name:      name,
 		Arguments: arguments,
@@ -274,11 +274,11 @@ func (c *WebSocketClient) ListToolsPaginated(ctx context.Context, options types.
 }
 
 // CallTool calls a tool with the given name and arguments
-func (c *WebSocketClient) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*types.CallToolResult, error) {
+func (c *WebSocketClient) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
 	// Send a callTool request
 	params := struct {
-		Name      string                 `json:"name"`
-		Arguments map[string]interface{} `json:"arguments"`
+		Name      string         `json:"name"`
+		Arguments map[string]any `json:"arguments"`
 	}{
 		Name:      name,
 		Arguments: arguments,

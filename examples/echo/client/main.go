@@ -92,10 +92,10 @@ func testWebSocketEndpoints() {
 	defer conn.Close()
 
 	// Create a channel for receiving responses
-	responses := make(chan map[string]interface{}, 1)
+	responses := make(chan map[string]any, 1)
 	go func() {
 		for {
-			var response map[string]interface{}
+			var response map[string]any
 			if err := conn.ReadJSON(&response); err != nil {
 				log.Printf("Failed to read response: %v", err)
 				return
@@ -105,7 +105,7 @@ func testWebSocketEndpoints() {
 	}()
 
 	// Test getting tools list
-	err = conn.WriteJSON(map[string]interface{}{
+	err = conn.WriteJSON(map[string]any{
 		"type":      "request",
 		"messageId": "1",
 		"method":    "listTools",
@@ -120,10 +120,10 @@ func testWebSocketEndpoints() {
 	case response := <-responses:
 		if response["success"] == true {
 			// Check result field
-			if tools, ok := response["result"].([]interface{}); ok {
+			if tools, ok := response["result"].([]any); ok {
 				fmt.Println("Available tools:")
 				for _, t := range tools {
-					if tool, ok := t.(map[string]interface{}); ok {
+					if tool, ok := t.(map[string]any); ok {
 						fmt.Printf("- %s: %s\n", tool["name"], tool["description"])
 					}
 				}
@@ -137,12 +137,12 @@ func testWebSocketEndpoints() {
 	}
 
 	// Test calling a tool
-	err = conn.WriteJSON(map[string]interface{}{
+	err = conn.WriteJSON(map[string]any{
 		"type":      "request",
 		"messageId": "2",
 		"method":    "callTool",
 		"name":      "echo",
-		"args": map[string]interface{}{
+		"args": map[string]any{
 			"message": "Hello from WebSocket client!",
 		},
 	})
@@ -156,8 +156,8 @@ func testWebSocketEndpoints() {
 	case response := <-responses:
 		if response["success"] == true {
 			// Check result field
-			if result, ok := response["result"].(map[string]interface{}); ok {
-				if content, ok := result["content"].(interface{}); ok {
+			if result, ok := response["result"].(map[string]any); ok {
+				if content, ok := result["content"].(any); ok {
 					fmt.Printf("Tool response: %v\n", content)
 				}
 			}
