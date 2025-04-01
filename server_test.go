@@ -22,10 +22,10 @@ func TestServerLifecycle(t *testing.T) {
 	err = server.Initialize(context.Background(), nil)
 	assert.NoError(t, err)
 
-	// Test Start
+	// Create error channel for goroutine
+	errChan := make(chan error, 1)
 	go func() {
-		err := server.Start()
-		assert.NoError(t, err)
+		errChan <- server.Start()
 	}()
 
 	// Give server time to start
@@ -37,6 +37,16 @@ func TestServerLifecycle(t *testing.T) {
 
 	err = server.Shutdown(ctx)
 	assert.NoError(t, err)
+
+	// Check for any errors from the server goroutine
+	select {
+	case err := <-errChan:
+		if err != nil && err.Error() != "http: Server closed" {
+			t.Errorf("Server goroutine error: %v", err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Timeout waiting for server goroutine to finish")
+	}
 }
 
 func TestServerMethods(t *testing.T) {

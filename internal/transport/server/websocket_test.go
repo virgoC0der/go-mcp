@@ -26,13 +26,18 @@ func TestWebSocketServer_Lifecycle(t *testing.T) {
 	assert.NotNil(t, server)
 
 	// Test Start (in goroutine since it blocks)
+	errCh := make(chan error)
 	go func() {
 		err := server.Start()
-		assert.NoError(t, err)
+		if err != nil && err.Error() != "http: Server closed" {
+			errCh <- err
+		} else {
+			errCh <- nil
+		}
 	}()
 
 	// Give server time to start
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 
 	// Test Shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -40,6 +45,14 @@ func TestWebSocketServer_Lifecycle(t *testing.T) {
 
 	err := server.Shutdown(ctx)
 	assert.NoError(t, err)
+
+	// Wait for server to stop
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Error("Server did not stop within timeout")
+	}
 }
 
 func TestWebSocketHandler_Initialize(t *testing.T) {

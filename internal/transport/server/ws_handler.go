@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -266,12 +265,9 @@ func (h *WebSocketHandler) handleReadResourceRequest(conn *websocket.Conn, messa
 		return
 	}
 
-	// Base64 encode the content
-	encodedContent := base64.StdEncoding.EncodeToString(content)
-
 	h.sendSuccessResponse(conn, messageID, map[string]any{
-		"content":  encodedContent,
-		"mimeType": mimeType,
+		"content": string(content),
+		"type":    mimeType,
 	})
 }
 

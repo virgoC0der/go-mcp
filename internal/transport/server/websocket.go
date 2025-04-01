@@ -173,8 +173,8 @@ func (s *WSServer) handleMessage(ctx context.Context, conn *websocket.Conn, msg 
 			response.Error = err.Error()
 		} else {
 			response.Result = map[string]any{
-				"content":  content,
-				"mimeType": mimeType,
+				"content": string(content),
+				"type":    mimeType,
 			}
 		}
 
