@@ -2,7 +2,6 @@
 
 [![Go Test and Lint](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml/badge.svg)](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/virgoC0der/go-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/virgoC0der/go-mcp)
-[![Go Report Card](https://goreportcard.com/badge/github.com/virgoC0der/go-mcp)](https://goreportcard.com/report/github.com/virgoC0der/go-mcp)
 [![GoDoc](https://godoc.org/github.com/virgoC0der/go-mcp?status.svg)](https://godoc.org/github.com/virgoC0der/go-mcp)
 
 Go implementation of the Model Context Protocol (MCP).
