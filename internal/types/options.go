@@ -10,6 +10,6 @@ type ServerOptions struct {
 type ClientOptions struct {
 	// ServerAddress is the server address to connect to (e.g. "localhost:8080")
 	ServerAddress string `json:"server_address"`
-	// Type is the client type ("http" or "websocket")
+	// Type is the client type ("http" or "sse")
 	Type string `json:"type"`
 }

@@ -51,14 +51,10 @@ func (h *HTTPHandler) setupRoutes() {
 func (h *HTTPHandler) handlePrompts(c *gin.Context) {
 	prompts, err := h.service.ListPrompts(c.Request.Context())
 	if err != nil {
-		if mcpErr, ok := err.(*types.Error); ok {
-			c.JSON(200, h.createErrorResponse(mcpErr.Code, mcpErr.Message))
-		} else {
-			c.JSON(200, h.createErrorResponse("unknown_error", err.Error()))
-		}
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(200, h.createSuccessResponse(prompts))
+	c.JSON(http.StatusOK, types.NewSuccessResponse(prompts))
 }
 
 func (h *HTTPHandler) handlePrompt(c *gin.Context) {
@@ -66,33 +62,25 @@ func (h *HTTPHandler) handlePrompt(c *gin.Context) {
 		Arguments map[string]any `json:"arguments"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(200, h.createErrorResponse("invalid_request", err.Error()))
+		c.JSON(http.StatusBadRequest, types.NewErrorResponse("invalid_request", err.Error()))
 		return
 	}
 
 	result, err := h.service.GetPrompt(c.Request.Context(), c.Param("name"), req.Arguments)
 	if err != nil {
-		if mcpErr, ok := err.(*types.Error); ok {
-			c.JSON(200, h.createErrorResponse(mcpErr.Code, mcpErr.Message))
-		} else {
-			c.JSON(200, h.createErrorResponse("unknown_error", err.Error()))
-		}
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(200, h.createSuccessResponse(result))
+	c.JSON(http.StatusOK, types.NewSuccessResponse(result))
 }
 
 func (h *HTTPHandler) handleTools(c *gin.Context) {
 	tools, err := h.service.ListTools(c.Request.Context())
 	if err != nil {
-		if mcpErr, ok := err.(*types.Error); ok {
-			c.JSON(200, h.createErrorResponse(mcpErr.Code, mcpErr.Message))
-		} else {
-			c.JSON(200, h.createErrorResponse("unknown_error", err.Error()))
-		}
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(200, h.createSuccessResponse(tools))
+	c.JSON(http.StatusOK, types.NewSuccessResponse(tools))
 }
 
 func (h *HTTPHandler) handleTool(c *gin.Context) {
@@ -100,65 +88,45 @@ func (h *HTTPHandler) handleTool(c *gin.Context) {
 		Arguments map[string]any `json:"arguments"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(200, h.createErrorResponse("invalid_request", err.Error()))
+		c.JSON(http.StatusBadRequest, types.NewErrorResponse("invalid_request", err.Error()))
 		return
 	}
 
 	result, err := h.service.CallTool(c.Request.Context(), c.Param("name"), req.Arguments)
 	if err != nil {
-		if mcpErr, ok := err.(*types.Error); ok {
-			c.JSON(200, h.createErrorResponse(mcpErr.Code, mcpErr.Message))
-		} else {
-			c.JSON(200, h.createErrorResponse("unknown_error", err.Error()))
-		}
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(200, h.createSuccessResponse(result))
+	c.JSON(http.StatusOK, types.NewSuccessResponse(result))
 }
 
 func (h *HTTPHandler) handleResources(c *gin.Context) {
 	resources, err := h.service.ListResources(c.Request.Context())
 	if err != nil {
-		if mcpErr, ok := err.(*types.Error); ok {
-			c.JSON(200, h.createErrorResponse(mcpErr.Code, mcpErr.Message))
-		} else {
-			c.JSON(200, h.createErrorResponse("unknown_error", err.Error()))
-		}
+		h.handleError(c, err)
 		return
 	}
-	c.JSON(200, h.createSuccessResponse(resources))
+	c.JSON(http.StatusOK, types.NewSuccessResponse(resources))
 }
 
 func (h *HTTPHandler) handleResource(c *gin.Context) {
 	content, mimeType, err := h.service.ReadResource(c.Request.Context(), c.Param("name"))
 	if err != nil {
-		if mcpErr, ok := err.(*types.Error); ok {
-			c.JSON(200, h.createErrorResponse(mcpErr.Code, mcpErr.Message))
-		} else {
-			c.JSON(200, h.createErrorResponse("unknown_error", err.Error()))
-		}
+		h.handleError(c, err)
 		return
 	}
 
-	c.Data(200, mimeType, content)
+	if mimeType == "application/json" {
+		c.JSON(http.StatusOK, types.NewSuccessResponse(string(content)))
+	} else {
+		c.Data(http.StatusOK, mimeType, content)
+	}
 }
 
-func (h *HTTPHandler) createSuccessResponse(result any) map[string]any {
-	response := map[string]any{
-		"success": true,
-	}
-	if result != nil {
-		response["result"] = result
-	}
-	return response
-}
-
-func (h *HTTPHandler) createErrorResponse(code, message string) map[string]any {
-	return map[string]any{
-		"success": false,
-		"error": map[string]any{
-			"code":    code,
-			"message": message,
-		},
+func (h *HTTPHandler) handleError(c *gin.Context, err error) {
+	if mcpErr, ok := err.(*types.Error); ok {
+		c.JSON(http.StatusBadRequest, types.NewMCPErrorResponse(mcpErr))
+	} else {
+		c.JSON(http.StatusInternalServerError, types.NewErrorResponse("internal_error", err.Error()))
 	}
 }

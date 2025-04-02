@@ -6,7 +6,8 @@ Go-MCP is a Go implementation of the Model Context Protocol (MCP). MCP is a prot
 
 - Complete MCP protocol implementation
 - Type-safe API
-- Multiple transport options (HTTP, WebSocket)
+- Multiple transport options (HTTP, SSE)
+- Unified response structure
 - Pagination support
 - Change notifications support
 
@@ -42,6 +43,7 @@ func main() {
     // Create server
     server, err := mcp.NewServer(service, &types.ServerOptions{
         Address: ":8080",
+        Type:    "sse", // or "http"
     })
     if err != nil {
         log.Fatal(err)
@@ -76,7 +78,7 @@ func main() {
     // Create client
     client, err := mcp.NewClient(&types.ClientOptions{
         ServerAddress: "localhost:8080",
-        Type:         "websocket", // or "http"
+        Type:         "sse", // or "http"
     })
     if err != nil {
         log.Fatal(err)
@@ -98,6 +100,45 @@ func main() {
         log.Fatal(err)
     }
     log.Printf("Available prompts: %v", prompts)
+}
+```
+
+## Response Structure
+
+All API responses follow a unified structure:
+
+```go
+type Response struct {
+    Success bool        `json:"success"`
+    Result  interface{} `json:"result,omitempty"`
+    Error   *ErrorInfo  `json:"error,omitempty"`
+}
+
+type ErrorInfo struct {
+    Code    string `json:"code"`
+    Message string `json:"message"`
+}
+```
+
+Success Response Example:
+```json
+{
+    "success": true,
+    "result": {
+        "name": "example_prompt",
+        "description": "An example prompt"
+    }
+}
+```
+
+Error Response Example:
+```json
+{
+    "success": false,
+    "error": {
+        "code": "invalid_request",
+        "message": "Invalid request parameters"
+    }
 }
 ```
 
