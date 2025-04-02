@@ -7,12 +7,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/virgoC0der/go-mcp/internal/transport/client"
+	"github.com/virgoC0der/go-mcp/transport/http"
 )
 
 func main() {
 	// Create HTTP client
-	c := client.NewHTTPClient("http://localhost:8080")
+	c := http.NewHTTPClient("http://localhost:8080")
 
 	// List available tools
 	tools, err := c.ListTools(context.Background())

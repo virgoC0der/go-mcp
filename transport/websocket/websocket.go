@@ -1,4 +1,4 @@
-package server
+package websocket
 
 import (
 	"context"
@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
 // WSServer wraps the WebSocket transport layer for an MCP server
 type WSServer struct {
-	server   Server
+	server   types.Server
 	addr     string
 	upgrader websocket.Upgrader
 	// clients field is deprecated and no longer used
@@ -40,7 +41,7 @@ type Response struct {
 }
 
 // NewWSServer creates a new WebSocket server instance
-func NewWSServer(mcpServer Server, addr string) *WSServer {
+func NewWSServer(mcpServer types.Server, addr string) *WSServer {
 	return &WSServer{
 		server: mcpServer,
 		addr:   addr,

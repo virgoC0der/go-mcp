@@ -1,4 +1,4 @@
-package server
+package websocket
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 // WebSocketHandler handles WebSocket connections for the MCP server
 type WebSocketHandler struct {
-	server       Server
+	server       types.Server
 	upgrader     websocket.Upgrader
 	clients      map[*websocket.Conn]bool
 	mutex        sync.Mutex
@@ -24,7 +24,7 @@ type WebSocketHandler struct {
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
-func NewWebSocketHandler(server Server) *WebSocketHandler {
+func NewWebSocketHandler(server types.Server) *WebSocketHandler {
 	return &WebSocketHandler{
 		server: server,
 		upgrader: websocket.Upgrader{

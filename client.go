@@ -1,8 +1,8 @@
 package mcp
 
 import (
-	"github.com/virgoC0der/go-mcp/internal/transport"
 	"github.com/virgoC0der/go-mcp/internal/types"
+	"github.com/virgoC0der/go-mcp/transport"
 )
 
 // ClientOption represents an option for configuring the client
