@@ -4,160 +4,242 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
-	"time"
 
-	"github.com/virgoC0der/go-mcp/server"
-	"github.com/virgoC0der/go-mcp/transport"
-	"github.com/virgoC0der/go-mcp/types"
+	"github.com/virgoC0der/go-mcp"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
-// Caiyun Weather API address
-const CaiyunAPI = "https://api.caiyunapp.com/v2.6/"
-
-// WeatherServer 实现一个天气服务
+// WeatherServer implements a weather service
 type WeatherServer struct {
-	*server.BaseServer
-	APIKey string // Caiyun Weather API key
+	prompts   []types.Prompt
+	tools     []types.Tool
+	resources []types.Resource
+	apiKey    string
 }
 
-// WeatherRequest 天气请求参数
-type WeatherRequest struct {
-	Longitude float64 `json:"longitude" jsonschema:"required,description=经度"`
-	Latitude  float64 `json:"latitude" jsonschema:"required,description=纬度"`
-	Language  string  `json:"language" jsonschema:"description=语言，支持zh_CN, en_US, ja等"`
-}
-
-// NewWeatherServer 创建一个新的天气服务实例
+// NewWeatherServer creates a new weather server instance
 func NewWeatherServer(apiKey string) *WeatherServer {
 	s := &WeatherServer{
-		BaseServer: server.NewBaseServer("caiyun-weather", "1.0.0"),
-		APIKey:     apiKey,
+		apiKey: apiKey,
+		prompts: []types.Prompt{
+			{
+				Name:        "weather",
+				Description: "Get weather information for a city",
+				Template:    "The weather in {{.city}} is {{.temperature}}°C with {{.description}}",
+				Metadata: map[string]interface{}{
+					"required": []string{"city"},
+				},
+			},
+		},
+		tools: []types.Tool{
+			{
+				Name:        "getWeather",
+				Description: "Get weather information for a city",
+				Parameters: map[string]interface{}{
+					"city": map[string]interface{}{
+						"type":        "string",
+						"description": "City name",
+					},
+				},
+			},
+		},
+		resources: []types.Resource{
+			{
+				Name:        "cities",
+				Type:        "application/json",
+				Description: "List of supported cities",
+			},
+		},
 	}
-
-	// Register weather tool
-	err := s.RegisterToolTyped("getWeather", "获取指定位置的天气信息", server.CreateToolHandler(s.GetWeather))
-	if err != nil {
-		log.Fatalf("Failed to register weather tool: %v", err)
-	}
-
 	return s
 }
 
-// GetWeather 获取天气信息
-func (s *WeatherServer) GetWeather(request WeatherRequest) (*types.CallToolResult, error) {
-	// Set default language
-	language := request.Language
-	if language == "" {
-		language = "zh_CN"
+// Initialize implements the Server interface
+func (s *WeatherServer) Initialize(ctx context.Context, options any) error {
+	if s.apiKey == "" {
+		return fmt.Errorf("API key is required")
+	}
+	return nil
+}
+
+// ListPrompts implements the Server interface
+func (s *WeatherServer) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
+	return s.prompts, nil
+}
+
+// GetPrompt implements the Server interface
+func (s *WeatherServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
+	if name != "weather" {
+		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
 
-	// Build API URL
-	url := fmt.Sprintf("%s%s/%f,%f/weather?alert=true&dailysteps=1&hourlysteps=24&lang=%s",
-		CaiyunAPI, s.APIKey, request.Longitude, request.Latitude, language)
+	city, ok := args["city"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing required argument: city")
+	}
 
-	// Send HTTP request
-	resp, err := http.Get(url)
+	// Get weather data using the tool
+	result, err := s.CallTool(ctx, "getWeather", map[string]any{"city": city})
 	if err != nil {
-		return nil, fmt.Errorf("请求天气API失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response content
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("读取响应失败: %w", err)
+		return nil, err
 	}
 
-	// Parse JSON response
-	var result map[string]any
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析JSON失败: %w", err)
+	// Parse weather data
+	data, ok := result.Output.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid weather data format")
 	}
 
-	// 检查API响应状态
-	status, ok := result["status"].(string)
-	if !ok || status != "ok" {
-		return nil, fmt.Errorf("API响应错误: %v", result["status"])
-	}
-
-	// 返回结果
-	return &types.CallToolResult{
-		Content: result,
+	return &types.GetPromptResult{
+		Content: fmt.Sprintf(
+			"The weather in %s is %.1f°C with %s",
+			city,
+			data["temperature"].(float64),
+			data["description"].(string),
+		),
 	}, nil
 }
 
-func main() {
-	// 从环境变量获取API密钥
-	apiKey := os.Getenv("CAIYUN_API_KEY")
+// ListTools implements the Server interface
+func (s *WeatherServer) ListTools(ctx context.Context) ([]types.Tool, error) {
+	return s.tools, nil
+}
 
-	// 创建天气服务
-	srv := NewWeatherServer(apiKey)
+// CallTool implements the Server interface
+func (s *WeatherServer) CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
+	if name != "getWeather" {
+		return nil, fmt.Errorf("unknown tool: %s", name)
+	}
 
-	// 初始化服务
-	err := srv.Initialize(context.Background(), types.InitializationOptions{
-		ServerName:    "caiyun-weather",
-		ServerVersion: "1.0.0",
-		Capabilities: types.ServerCapabilities{
-			Tools: true,
+	city, ok := args["city"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid argument: city")
+	}
+
+	// Call OpenWeatherMap API
+	url := fmt.Sprintf(
+		"http://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric",
+		city, s.apiKey,
+	)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get weather data: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("weather API error: %s", resp.Status)
+	}
+
+	var data struct {
+		Main struct {
+			Temp float64 `json:"temp"`
+		} `json:"main"`
+		Weather []struct {
+			Description string `json:"description"`
+		} `json:"weather"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("failed to parse weather data: %w", err)
+	}
+
+	return &types.CallToolResult{
+		Output: map[string]interface{}{
+			"temperature": data.Main.Temp,
+			"description": data.Weather[0].Description,
 		},
+	}, nil
+}
+
+// ListResources implements the Server interface
+func (s *WeatherServer) ListResources(ctx context.Context) ([]types.Resource, error) {
+	return s.resources, nil
+}
+
+// ReadResource implements the Server interface
+func (s *WeatherServer) ReadResource(ctx context.Context, name string) ([]byte, string, error) {
+	if name != "cities" {
+		return nil, "", fmt.Errorf("unknown resource: %s", name)
+	}
+
+	cities := []string{
+		"London",
+		"New York",
+		"Tokyo",
+		"Paris",
+		"Beijing",
+	}
+
+	content, err := json.Marshal(cities)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to marshal cities: %w", err)
+	}
+
+	return content, "application/json", nil
+}
+
+func main() {
+	apiKey := os.Getenv("OPENWEATHERMAP_API_KEY")
+	if apiKey == "" {
+		log.Fatal("OPENWEATHERMAP_API_KEY environment variable is required")
+	}
+
+	// Create weather service
+	service := NewWeatherServer(apiKey)
+
+	// Create HTTP server
+	httpServer, err := mcp.NewServer(service, &types.ServerOptions{
+		Address: ":8080",
 	})
 	if err != nil {
-		log.Fatalf("初始化服务失败: %v", err)
+		log.Fatal(err)
 	}
 
-	// 创建HTTP和WebSocket服务器
-	httpServer := transport.NewHTTPServer(srv, ":8080")
-	wsServer := transport.NewWSServer(srv, ":8081")
+	// Create WebSocket server
+	wsServer, err := mcp.NewServer(service, &types.ServerOptions{
+		Address: ":8081",
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// 使用WaitGroup等待所有服务器关闭
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// Initialize servers
+	ctx := context.Background()
+	if err := httpServer.Initialize(ctx, nil); err != nil {
+		log.Fatal(err)
+	}
+	if err := wsServer.Initialize(ctx, nil); err != nil {
+		log.Fatal(err)
+	}
 
-	// 启动HTTP服务器
-	go func() {
-		defer wg.Done()
-		log.Printf("HTTP服务器启动在 :8080")
-		if err := httpServer.Start(); err != nil {
-			log.Printf("HTTP服务器错误: %v", err)
-		}
-	}()
+	// Start servers
+	if err := httpServer.Start(); err != nil {
+		log.Fatal(err)
+	}
+	if err := wsServer.Start(); err != nil {
+		log.Fatal(err)
+	}
 
-	// 启动WebSocket服务器
-	go func() {
-		defer wg.Done()
-		log.Printf("WebSocket服务器启动在 :8081")
-		if err := wsServer.Start(); err != nil {
-			log.Printf("WebSocket服务器错误: %v", err)
-		}
-	}()
+	// Wait for interrupt signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
 
-	// 处理中断信号
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
-
-	log.Println("正在关闭服务器...")
-
-	// 创建带超时的上下文用于优雅关闭
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Graceful shutdown
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5)
 	defer cancel()
 
-	// 关闭服务器
-	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Printf("关闭HTTP服务器出错: %v", err)
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Error shutting down HTTP server: %v", err)
 	}
-	if err := wsServer.Shutdown(ctx); err != nil {
-		log.Printf("关闭WebSocket服务器出错: %v", err)
+	if err := wsServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Error shutting down WebSocket server: %v", err)
 	}
-
-	// 等待服务器关闭
-	wg.Wait()
-	log.Println("所有服务器已停止")
 }

@@ -6,99 +6,108 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
-	"time"
 
-	"github.com/virgoC0der/go-mcp/server"
-	"github.com/virgoC0der/go-mcp/transport"
-	"github.com/virgoC0der/go-mcp/types"
+	"github.com/virgoC0der/go-mcp"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
 // EchoServer implements a simple echo server for demonstration
 type EchoServer struct {
-	*server.BaseServer
+	prompts   []types.Prompt
+	tools     []types.Tool
+	resources []types.Resource
 }
 
 // NewEchoServer creates a new echo server instance
 func NewEchoServer() *EchoServer {
 	s := &EchoServer{
-		BaseServer: server.NewBaseServer("echo", "1.0.0"),
-	}
-
-	// Register echo prompt
-	s.RegisterPrompt(types.Prompt{
-		Name:        "echo",
-		Description: "Echo a message",
-		Arguments: []types.PromptArgument{
+		prompts: []types.Prompt{
 			{
-				Name:        "message",
-				Description: "Message to echo",
-				Required:    true,
+				Name:        "echo",
+				Description: "Echo a message",
+				Template:    "Echo: {{.message}}",
+				Metadata: map[string]interface{}{
+					"required": []string{"message"},
+				},
 			},
 		},
-	})
-
-	// Register echo tool
-	s.RegisterTool(types.Tool{
-		Name:        "echo",
-		Description: "Echo a message",
-	})
-
-	// Register echo resource
-	s.RegisterResource(types.Resource{
-		Name:        "echo",
-		Description: "Echo resource",
-		MimeType:    "text/plain",
-	})
-
+		tools: []types.Tool{
+			{
+				Name:        "echo",
+				Description: "Echo a message",
+				Parameters: map[string]interface{}{
+					"message": map[string]interface{}{
+						"type":        "string",
+						"description": "Message to echo",
+					},
+				},
+			},
+		},
+		resources: []types.Resource{
+			{
+				Name:        "echo",
+				Type:        "text/plain",
+				Description: "Echo resource",
+			},
+		},
+	}
 	return s
 }
 
-// GetPrompt implements the prompt handler for the echo server
-func (s *EchoServer) GetPrompt(ctx context.Context, name string, arguments map[string]any) (*types.GetPromptResult, error) {
+// Initialize implements the Server interface
+func (s *EchoServer) Initialize(ctx context.Context, options any) error {
+	return nil
+}
+
+// ListPrompts implements the Server interface
+func (s *EchoServer) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
+	return s.prompts, nil
+}
+
+// GetPrompt implements the Server interface
+func (s *EchoServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
 
-	message, ok := arguments["message"].(string)
+	message, ok := args["message"].(string)
 	if !ok {
 		return nil, fmt.Errorf("missing required argument: message")
 	}
 
 	return &types.GetPromptResult{
-		Description: "Echo prompt",
-		Messages: []types.Message{
-			{
-				Role: "user",
-				Content: types.Content{
-					Type: "text",
-					Text: fmt.Sprintf("Echo: %s", message),
-				},
-			},
-		},
+		Content: fmt.Sprintf("Echo: %s", message),
 	}, nil
 }
 
-// CallTool implements the tool handler for the echo server
-func (s *EchoServer) CallTool(ctx context.Context, name string, arguments map[string]any) (*types.CallToolResult, error) {
+// ListTools implements the Server interface
+func (s *EchoServer) ListTools(ctx context.Context) ([]types.Tool, error) {
+	return s.tools, nil
+}
+
+// CallTool implements the Server interface
+func (s *EchoServer) CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
 
-	message, ok := arguments["message"].(string)
+	message, ok := args["message"].(string)
 	if !ok {
 		return nil, fmt.Errorf("missing or invalid argument: message")
 	}
 
 	return &types.CallToolResult{
-		Content: map[string]any{
-			"message": fmt.Sprintf("Echo: %s", message),
-		},
+		Output: fmt.Sprintf("Echo: %s", message),
 	}, nil
 }
 
-// ReadResource implements the resource handler for the echo server
+// ListResources implements the Server interface
+func (s *EchoServer) ListResources(ctx context.Context) ([]types.Resource, error) {
+	return s.resources, nil
+}
+
+// ReadResource implements the Server interface
 func (s *EchoServer) ReadResource(ctx context.Context, name string) ([]byte, string, error) {
 	if name != "echo" {
 		return nil, "", fmt.Errorf("unknown resource: %s", name)
@@ -111,66 +120,69 @@ func (s *EchoServer) ReadResource(ctx context.Context, name string) ([]byte, str
 func main() {
 	srv := NewEchoServer()
 
-	// Initialize the server
-	err := srv.Initialize(context.Background(), types.InitializationOptions{
-		ServerName:    "echo",
-		ServerVersion: "1.0.0",
-		Capabilities: types.ServerCapabilities{
-			Prompts:   true,
-			Tools:     true,
-			Resources: true,
-		},
+	// Create HTTP server
+	httpServer, err := mcp.NewServer(srv, &types.ServerOptions{
+		Address: ":8080",
 	})
 	if err != nil {
-		log.Fatalf("Failed to initialize server: %v", err)
+		log.Fatalf("Failed to create HTTP server: %v", err)
 	}
 
-	// Create HTTP and WebSocket servers
-	httpServer := transport.NewHTTPServer(srv, ":8080")
-	wsServer := transport.NewWSServer(srv, ":8081")
+	// Create WebSocket server
+	wsServer, err := mcp.NewServer(srv, &types.ServerOptions{
+		Address: ":8081",
+	})
+	if err != nil {
+		log.Fatalf("Failed to create WebSocket server: %v", err)
+	}
 
-	// Use WaitGroup to wait for all servers to shut down
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Start HTTP server
+	// Initialize servers
+	if err := httpServer.Initialize(ctx, nil); err != nil {
+		log.Fatalf("Failed to initialize HTTP server: %v", err)
+	}
+	if err := wsServer.Initialize(ctx, nil); err != nil {
+		log.Fatalf("Failed to initialize WebSocket server: %v", err)
+	}
+
+	// Start servers
 	go func() {
-		defer wg.Done()
 		log.Printf("Starting HTTP server on :8080")
 		if err := httpServer.Start(); err != nil {
 			log.Printf("HTTP server error: %v", err)
+			cancel()
 		}
 	}()
 
-	// Start WebSocket server
 	go func() {
-		defer wg.Done()
 		log.Printf("Starting WebSocket server on :8081")
 		if err := wsServer.Start(); err != nil {
 			log.Printf("WebSocket server error: %v", err)
+			cancel()
 		}
 	}()
 
 	// Handle interrupt signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
 
+	select {
+	case <-sigChan:
+		log.Println("Received shutdown signal")
+	case <-ctx.Done():
+		log.Println("Server error occurred")
+	}
+
+	// Graceful shutdown
 	log.Println("Shutting down servers...")
-
-	// Create context with timeout for graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Shutdown servers
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Printf("Error shutting down HTTP server: %v", err)
+		log.Printf("HTTP server shutdown error: %v", err)
 	}
 	if err := wsServer.Shutdown(ctx); err != nil {
-		log.Printf("Error shutting down WebSocket server: %v", err)
+		log.Printf("WebSocket server shutdown error: %v", err)
 	}
-
-	// Wait for servers to shut down
-	wg.Wait()
 	log.Println("Servers stopped")
 }

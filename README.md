@@ -1,33 +1,19 @@
-# Go MCP SDK
+# Go-MCP
 
 [![Go Test and Lint](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml/badge.svg)](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/virgoC0der/go-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/virgoC0der/go-mcp)
 [![GoDoc](https://godoc.org/github.com/virgoC0der/go-mcp?status.svg)](https://godoc.org/github.com/virgoC0der/go-mcp)
 
-Go implementation of the Model Context Protocol (MCP).
-
-## Overview
-
-Model Context Protocol (MCP) is a protocol for building AI applications that defines three core primitives:
-
-- Prompts: User-controlled interactive templates
-- Resources: Application-controlled contextual data
-- Tools: Model-controlled executable functions
-
-This SDK provides a Go implementation of the MCP protocol, including both server and client interfaces.
+Go-MCP is a Go implementation of the Model Context Protocol (MCP). MCP is a protocol for building AI services, defining three core primitives: Prompts, Tools, and Resources.
 
 ## Features
 
 - Complete MCP protocol implementation
-- Type-safe API with native Go struct support and automatic JSON Schema generation
-- Multiple transport options:
-  - HTTP: Stateless REST API
-  - WebSocket: For bidirectional communication
-  - Stdio: For integration with CLI tools and processes
-- Pagination support for listing large sets of prompts, tools, and resources
-- Change notifications for real-time updates
-- Easy-to-use server and client interfaces
-- Built-in base implementations and examples
+- Type-safe API
+- Multiple transport options (HTTP, SSE)
+- Unified response structure
+- Pagination support
+- Change notifications support
 
 ## Installation
 
@@ -44,120 +30,178 @@ package main
 
 import (
     "context"
-    "fmt"
     "log"
-
-    "github.com/virgoC0der/go-mcp/server"
-    "github.com/virgoC0der/go-mcp/types"
+    "github.com/virgoC0der/go-mcp"
+    "github.com/virgoC0der/go-mcp/internal/types"
 )
 
-// Define typed input structure
-type GreetInput struct {
-    Name    string `json:"name" jsonschema:"required,description=Name to greet"`
-    Formal  bool   `json:"formal" jsonschema:"description=Whether to use formal greeting"`
+// Implement MCPService interface
+type MyService struct {
+    // ... your service implementation
 }
 
 func main() {
+    // Create service instance
+    service := &MyService{}
+
     // Create server
-    srv := server.NewBaseServer("my-server", "1.0.0")
-
-    // Register typed prompt
-    err := srv.RegisterPromptTyped("greet", "Greet a person", 
-        func(input GreetInput) (*types.GetPromptResult, error) {
-            greeting := "Hi, " + input.Name
-            if input.Formal {
-                greeting = "Good day, " + input.Name
-            }
-            return &types.GetPromptResult{
-                Description: "A greeting message",
-                Message:     greeting,
-            }, nil
-        })
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Initialize server
-    err = srv.Initialize(context.Background(), types.InitializationOptions{
-        ServerName:    "my-server",
-        ServerVersion: "1.0.0",
-        Capabilities: types.ServerCapabilities{
-            Prompts: true,
-        },
+    server, err := mcp.NewServer(service, &types.ServerOptions{
+        Address: ":8080",
+        Type:    "sse", // or "http"
     })
     if err != nil {
         log.Fatal(err)
     }
 
-    // Start server...
+    // Initialize server
+    ctx := context.Background()
+    if err := server.Initialize(ctx, nil); err != nil {
+        log.Fatal(err)
+    }
+
+    // Start server
+    if err := server.Start(); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
-### Using the Client
+### Creating a Client
 
 ```go
 package main
 
 import (
     "context"
-    "fmt"
     "log"
-
-    "github.com/virgoC0der/go-mcp/client"
+    "github.com/virgoC0der/go-mcp"
+    "github.com/virgoC0der/go-mcp/internal/types"
 )
 
 func main() {
-    // Create client (HTTP, WebSocket, or Stdio)
-    c := client.NewHTTPClient("http://localhost:8080")
-    // Alternatively: c, _ := client.NewWebSocketClient("ws://localhost:8081/ws")
-    
-    // Initialize connection
-    err := c.Initialize(context.Background())
+    // Create client
+    client, err := mcp.NewClient(&types.ClientOptions{
+        ServerAddress: "localhost:8080",
+        Type:         "sse", // or "http"
+    })
     if err != nil {
         log.Fatal(err)
     }
 
-    // List available prompts
-    prompts, err := c.ListPrompts(context.Background())
-    if err != nil {
+    // Connect to server
+    ctx := context.Background()
+    if err := client.Connect(ctx); err != nil {
         log.Fatal(err)
     }
+    defer client.Close()
 
-    for _, p := range prompts {
-        fmt.Printf("Found prompt: %s (%s)\n", p.Name, p.Description)
-    }
-    
-    // Call a prompt
-    args := map[string]any{
-        "name": "World",
-        "formal": true,
-    }
-    
-    result, err := c.GetPrompt(context.Background(), "greet", args)
+    // Get service interface
+    service := client.Service()
+
+    // Use service
+    prompts, err := service.ListPrompts(ctx)
     if err != nil {
         log.Fatal(err)
     }
-    
-    fmt.Println(result.Message)
+    log.Printf("Available prompts: %v", prompts)
+}
+```
+
+## Response Structure
+
+All API responses follow a unified structure:
+
+```go
+type Response struct {
+    Success bool        `json:"success"`
+    Result  interface{} `json:"result,omitempty"`
+    Error   *ErrorInfo  `json:"error,omitempty"`
+}
+
+type ErrorInfo struct {
+    Code    string `json:"code"`
+    Message string `json:"message"`
+}
+```
+
+Success Response Example:
+```json
+{
+    "success": true,
+    "result": {
+        "name": "example_prompt",
+        "description": "An example prompt"
+    }
+}
+```
+
+Error Response Example:
+```json
+{
+    "success": false,
+    "error": {
+        "code": "invalid_request",
+        "message": "Invalid request parameters"
+    }
 }
 ```
 
 ## Examples
 
-Check out the `examples` directory for more examples:
+- [Echo Server](examples/echo/main.go) - A simple echo server example
+- [Weather Service](examples/weather/main.go) - A weather service example using OpenWeatherMap API
+- [Advanced Usage](examples/advanced/main.go) - Example showcasing advanced features
 
-- `examples/echo`: Simple echo server example
-- `examples/advanced`: Advanced example with typed handlers and multiple transports
-- More examples coming soon...
+## API Documentation
 
-## Documentation
+### Server Interface
 
-Full documentation coming soon.
+Servers must implement the `types.Server` interface:
+
+```go
+type Server interface {
+    MCPService
+    Initialize(ctx context.Context, options any) error
+    Start() error
+    Shutdown(ctx context.Context) error
+}
+```
+
+The `MCPService` interface defines the core functionality:
+
+```go
+type MCPService interface {
+    ListPrompts(ctx context.Context) ([]Prompt, error)
+    GetPrompt(ctx context.Context, name string, args map[string]any) (*GetPromptResult, error)
+    ListTools(ctx context.Context) ([]Tool, error)
+    CallTool(ctx context.Context, name string, args map[string]any) (*CallToolResult, error)
+    ListResources(ctx context.Context) ([]Resource, error)
+    ReadResource(ctx context.Context, name string) ([]byte, string, error)
+}
+```
+
+### Client Interface
+
+Clients access services through the `types.Client` interface:
+
+```go
+type Client interface {
+    Connect(ctx context.Context) error
+    Close() error
+    Service() MCPService
+}
+```
 
 ## Contributing
 
-Pull requests are welcome!
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details

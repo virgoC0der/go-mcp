@@ -1,8 +1,7 @@
-package transport
+package websocket
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,12 +11,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/virgoC0der/go-mcp/types"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
 // WebSocketHandler handles WebSocket connections for the MCP server
 type WebSocketHandler struct {
-	server       Server
+	server       types.Server
 	upgrader     websocket.Upgrader
 	clients      map[*websocket.Conn]bool
 	mutex        sync.Mutex
@@ -25,7 +24,7 @@ type WebSocketHandler struct {
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
-func NewWebSocketHandler(server Server) *WebSocketHandler {
+func NewWebSocketHandler(server types.Server) *WebSocketHandler {
 	return &WebSocketHandler{
 		server: server,
 		upgrader: websocket.Upgrader{
@@ -266,12 +265,9 @@ func (h *WebSocketHandler) handleReadResourceRequest(conn *websocket.Conn, messa
 		return
 	}
 
-	// Base64 encode the content
-	encodedContent := base64.StdEncoding.EncodeToString(content)
-
 	h.sendSuccessResponse(conn, messageID, map[string]any{
-		"content":  encodedContent,
-		"mimeType": mimeType,
+		"content": string(content),
+		"type":    mimeType,
 	})
 }
 

@@ -1,4 +1,4 @@
-package transport
+package websocket
 
 import (
 	"context"
@@ -6,20 +6,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/virgoC0der/go-mcp/server"
+	"github.com/virgoC0der/go-mcp/internal/types"
 )
 
 // WSServer wraps the WebSocket transport layer for an MCP server
 type WSServer struct {
-	server   server.Server
+	server   types.Server
 	addr     string
 	upgrader websocket.Upgrader
 	// clients field is deprecated and no longer used
 	handler *WebSocketHandler
 	srv     *http.Server
+	mu      sync.RWMutex
 }
 
 // Message represents the structure of a WebSocket message
@@ -39,7 +41,7 @@ type Response struct {
 }
 
 // NewWSServer creates a new WebSocket server instance
-func NewWSServer(mcpServer server.Server, addr string) *WSServer {
+func NewWSServer(mcpServer types.Server, addr string) *WSServer {
 	return &WSServer{
 		server: mcpServer,
 		addr:   addr,
@@ -54,6 +56,9 @@ func NewWSServer(mcpServer server.Server, addr string) *WSServer {
 
 // Start starts the WebSocket server
 func (s *WSServer) Start() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	mux := http.NewServeMux()
 	mux.Handle("/ws", s.handler)
 	s.srv = &http.Server{
@@ -66,10 +71,14 @@ func (s *WSServer) Start() error {
 
 // Shutdown gracefully shuts down the WebSocket server
 func (s *WSServer) Shutdown(ctx context.Context) error {
-	if s.srv != nil {
-		return s.srv.Shutdown(ctx)
+	s.mu.Lock()
+	if s.srv == nil {
+		s.mu.Unlock()
+		return nil
 	}
-	return nil
+	srv := s.srv
+	s.mu.Unlock()
+	return srv.Shutdown(ctx)
 }
 
 // Deprecated: Legacy handler kept for backwards compatibility
@@ -174,8 +183,8 @@ func (s *WSServer) handleMessage(ctx context.Context, conn *websocket.Conn, msg 
 			response.Error = err.Error()
 		} else {
 			response.Result = map[string]any{
-				"content":  content,
-				"mimeType": mimeType,
+				"content": string(content),
+				"type":    mimeType,
 			}
 		}
 

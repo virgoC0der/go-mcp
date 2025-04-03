@@ -1,66 +1,133 @@
-# 彩云天气 MCP 示例
+# Weather Service Example
 
-这个示例展示了如何使用go-mcp库创建一个调用彩云天气API的MCP服务。
+This example demonstrates how to create a weather service using the Go-MCP framework and OpenWeatherMap API.
 
-## 功能
+## Features
 
-- 提供`getWeather`工具，用于获取指定位置的天气信息
-- 支持实时天气、空气质量、降水、风速等数据
-- 支持天气预警信息
-- 支持未来小时预报
+- Real-time weather information retrieval
+- Support for multiple cities
+- Temperature in Celsius
+- Weather condition descriptions
+- Both HTTP and WebSocket server support
 
-## 前提条件
+## Prerequisites
 
-你需要一个彩云天气API密钥。可以在[彩云天气开发者中心](https://dashboard.caiyunapp.com/)申请。
+Before running this example, you need:
 
-## 使用方法
+1. An OpenWeatherMap API key (get one at [OpenWeatherMap](https://openweathermap.org/api))
+2. Go 1.20 or later
 
-### 启动服务器
+## Configuration
+
+Set your OpenWeatherMap API key as an environment variable:
 
 ```bash
-# 设置API密钥
-export CAIYUN_API_KEY=你的彩云天气API密钥
+export OPENWEATHERMAP_API_KEY=your_api_key_here
+```
 
-# 启动服务器
+## Running the Example
+
+```bash
 go run main.go
 ```
 
-服务器将在以下地址启动：
-- HTTP服务器：http://localhost:8080
-- WebSocket服务器：ws://localhost:8081
+This will start:
+- HTTP server on port 8080
+- WebSocket server on port 8081
 
-### 使用客户端
+## API Usage
 
-```bash
-# 使用默认坐标（北京）
-go run client/main.go
+### Prompts
 
-# 使用自定义坐标（经度 纬度）
-go run client/main.go 116.407526 39.90403
+The weather service provides a `weather` prompt:
+
+```json
+{
+  "name": "weather",
+  "args": {
+    "city": "London"
+  }
+}
 ```
 
-## API参数
+Response:
+```json
+{
+  "content": "The weather in London is 15.2°C with scattered clouds"
+}
+```
 
-调用`getWeather`工具时需要提供以下参数：
+### Tools
 
-- `longitude`：经度（必填）
-- `latitude`：纬度（必填）
-- `language`：语言，可选，默认为`zh_CN`，支持`en_US`、`ja`等
+The service provides a `getWeather` tool:
 
-## 返回数据
+```json
+{
+  "name": "getWeather",
+  "args": {
+    "city": "Tokyo"
+  }
+}
+```
 
-返回的数据包括：
+Response:
+```json
+{
+  "output": {
+    "temperature": 25.6,
+    "description": "clear sky",
+    "city": "Tokyo"
+  }
+}
+```
 
-- 实时天气信息（温度、湿度、天气状况等）
-- 空气质量信息
-- 降水信息
-- 天气预警信息（如有）
-- 未来24小时天气预报
-- 未来天气预报
+### Resources
 
-具体字段说明请参考[彩云天气API文档](https://docs.caiyunapp.com/docs/api)。
+The service provides a `cities` resource that lists supported cities:
 
-## 注意事项
+```json
+GET /resources/cities
+```
 
-- 使用前请确保已设置环境变量`CAIYUN_API_KEY`
-- 彩云天气API有调用频率限制，请合理使用
+Response:
+```json
+[
+  "London",
+  "New York",
+  "Tokyo",
+  "Paris",
+  "Beijing"
+]
+```
+
+## Error Handling
+
+The service handles various error cases:
+- Invalid city names
+- API key configuration issues
+- OpenWeatherMap API errors
+- Network connectivity problems
+
+## Implementation Details
+
+The example demonstrates:
+- Implementing the MCP Server interface
+- Handling prompts, tools, and resources
+- Error handling and validation
+- Graceful shutdown
+- Environment variable configuration
+- HTTP and WebSocket server setup
+
+## Testing
+
+You can test the service using curl:
+
+```bash
+# Get weather using HTTP
+curl -X POST http://localhost:8080/prompts/weather -d '{"args":{"city":"London"}}'
+
+# Get supported cities
+curl http://localhost:8080/resources/cities
+```
+
+Or using WebSocket client libraries for real-time updates.
