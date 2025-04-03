@@ -1,5 +1,9 @@
 # Go-MCP
 
+[![Go Test and Lint](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml/badge.svg)](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml)
+[![codecov](https://codecov.io/gh/virgoC0der/go-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/virgoC0der/go-mcp)
+[![GoDoc](https://godoc.org/github.com/virgoC0der/go-mcp?status.svg)](https://godoc.org/github.com/virgoC0der/go-mcp)
+
 Go-MCP is a Go implementation of the Model Context Protocol (MCP). MCP is a protocol for building AI services, defining three core primitives: Prompts, Tools, and Resources.
 
 ## Features
