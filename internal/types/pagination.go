@@ -1,5 +1,10 @@
 package types
 
+import (
+	"fmt"
+	"reflect"
+)
+
 // PaginationOptions defines the options for pagination
 type PaginationOptions struct {
 	// Page is the page number (1-based)
@@ -59,10 +64,51 @@ func calculateTotalPages(totalItems, pageSize int) int {
 
 // ApplyPaginationToSlice applies pagination to a slice
 func ApplyPaginationToSlice(slice any, options PaginationOptions) (any, int, error) {
-	// Implementation for slicing a generic slice based on pagination options
-	// This is a placeholder - actual implementation would require reflection
-	// to handle different slice types
+	sliceVal := reflect.ValueOf(slice)
 
-	// For now, this is just a stub - real implementation would be more complex
-	return slice, 0, nil
+	// Check if the input is a slice
+	if sliceVal.Kind() != reflect.Slice {
+		return nil, 0, fmt.Errorf("input is not a slice")
+	}
+
+	// Get total items count
+	totalItems := sliceVal.Len()
+
+	// Handle empty input
+	if totalItems == 0 {
+		// Return empty slice of the same type
+		return slice, 0, nil
+	}
+
+	// Normalize page and pageSize
+	if options.Page < 1 {
+		options.Page = 1
+	}
+	if options.PageSize < 1 {
+		options.PageSize = DefaultPaginationOptions().PageSize
+	}
+
+	// Calculate start and end indices
+	startIdx := (options.Page - 1) * options.PageSize
+	endIdx := startIdx + options.PageSize
+
+	// Adjust if out of bounds
+	if startIdx >= totalItems {
+		// Return empty slice of the same type
+		emptySlice := reflect.MakeSlice(sliceVal.Type(), 0, 0).Interface()
+		return emptySlice, totalItems, nil
+	}
+	if endIdx > totalItems {
+		endIdx = totalItems
+	}
+
+	// Create a new slice with the paginated items
+	resultSlice := reflect.MakeSlice(sliceVal.Type(), endIdx-startIdx, endIdx-startIdx)
+
+	// Copy the elements to the result slice
+	for i := 0; i < endIdx-startIdx; i++ {
+		resultSlice.Index(i).Set(sliceVal.Index(startIdx + i))
+	}
+
+	return resultSlice.Interface(), totalItems, nil
 }

@@ -26,9 +26,12 @@ func NewEchoServer() *EchoServer {
 			{
 				Name:        "echo",
 				Description: "Echo a message",
-				Template:    "Echo: {{.message}}",
-				Metadata: map[string]interface{}{
-					"required": []string{"message"},
+				Arguments: []types.PromptArgument{
+					{
+						Name:        "message",
+						Description: "Message to echo",
+						Required:    true,
+					},
 				},
 			},
 		},
@@ -36,19 +39,24 @@ func NewEchoServer() *EchoServer {
 			{
 				Name:        "echo",
 				Description: "Echo a message",
-				Parameters: map[string]interface{}{
-					"message": map[string]interface{}{
-						"type":        "string",
-						"description": "Message to echo",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "Message to echo",
+						},
 					},
+					"required": []string{"message"},
 				},
 			},
 		},
 		resources: []types.Resource{
 			{
+				URI:         "echo",
 				Name:        "echo",
-				Type:        "text/plain",
 				Description: "Echo resource",
+				MimeType:    "text/plain",
 			},
 		},
 	}
@@ -60,13 +68,26 @@ func (s *EchoServer) Initialize(ctx context.Context, options any) error {
 	return nil
 }
 
+// Start implements the Server interface
+func (s *EchoServer) Start() error {
+	return nil
+}
+
+// Shutdown implements the Server interface
+func (s *EchoServer) Shutdown(ctx context.Context) error {
+	return nil
+}
+
 // ListPrompts implements the Server interface
-func (s *EchoServer) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
-	return s.prompts, nil
+func (s *EchoServer) ListPrompts(ctx context.Context, cursor string) (*types.PromptListResult, error) {
+	return &types.PromptListResult{
+		Prompts:    s.prompts,
+		NextCursor: "",
+	}, nil
 }
 
 // GetPrompt implements the Server interface
-func (s *EchoServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
+func (s *EchoServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
 	if name != "echo" {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
@@ -76,14 +97,27 @@ func (s *EchoServer) GetPrompt(ctx context.Context, name string, args map[string
 		return nil, fmt.Errorf("missing required argument: message")
 	}
 
-	return &types.GetPromptResult{
-		Content: fmt.Sprintf("Echo: %s", message),
+	// Create response with the expected Message format
+	return &types.PromptResult{
+		Description: "Echo response",
+		Messages: []types.Message{
+			{
+				Role: "assistant",
+				Content: types.Content{
+					Type: "text",
+					Text: fmt.Sprintf("Echo: %s", message),
+				},
+			},
+		},
 	}, nil
 }
 
 // ListTools implements the Server interface
-func (s *EchoServer) ListTools(ctx context.Context) ([]types.Tool, error) {
-	return s.tools, nil
+func (s *EchoServer) ListTools(ctx context.Context, cursor string) (*types.ToolListResult, error) {
+	return &types.ToolListResult{
+		Tools:      s.tools,
+		NextCursor: "",
+	}, nil
 }
 
 // CallTool implements the Server interface
@@ -98,23 +132,45 @@ func (s *EchoServer) CallTool(ctx context.Context, name string, args map[string]
 	}
 
 	return &types.CallToolResult{
-		Output: fmt.Sprintf("Echo: %s", message),
+		Content: []types.ToolContent{
+			{
+				Type: "text",
+				Text: fmt.Sprintf("Echo: %s", message),
+			},
+		},
+		IsError: false,
 	}, nil
 }
 
 // ListResources implements the Server interface
-func (s *EchoServer) ListResources(ctx context.Context) ([]types.Resource, error) {
-	return s.resources, nil
+func (s *EchoServer) ListResources(ctx context.Context, cursor string) (*types.ResourceListResult, error) {
+	return &types.ResourceListResult{
+		Resources:  s.resources,
+		NextCursor: "",
+	}, nil
 }
 
 // ReadResource implements the Server interface
-func (s *EchoServer) ReadResource(ctx context.Context, name string) ([]byte, string, error) {
-	if name != "echo" {
-		return nil, "", fmt.Errorf("unknown resource: %s", name)
+func (s *EchoServer) ReadResource(ctx context.Context, uri string) (*types.ResourceContent, error) {
+	if uri != "echo" {
+		return nil, fmt.Errorf("unknown resource: %s", uri)
 	}
 
-	content := []byte("This is an echo resource")
-	return content, "text/plain", nil
+	return &types.ResourceContent{
+		URI:      uri,
+		MimeType: "text/plain",
+		Text:     "This is an echo resource",
+	}, nil
+}
+
+// ListResourceTemplates implements the Server interface
+func (s *EchoServer) ListResourceTemplates(ctx context.Context) ([]types.ResourceTemplate, error) {
+	return []types.ResourceTemplate{}, nil
+}
+
+// SubscribeToResource implements the Server interface
+func (s *EchoServer) SubscribeToResource(ctx context.Context, uri string) error {
+	return fmt.Errorf("subscription not supported")
 }
 
 func main() {

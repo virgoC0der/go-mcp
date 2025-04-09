@@ -10,20 +10,22 @@ import (
 
 // HTTPServer implements the Server interface using HTTP
 type HTTPServer struct {
-	service types.MCPService
-	server  *http.Server
+	service      types.MCPService
+	server       *http.Server
+	capabilities *types.ServerCapabilities
 }
 
 // NewHTTPServer creates a new HTTP server instance
-func NewHTTPServer(service types.MCPService, address string) *HTTPServer {
+func NewHTTPServer(service types.MCPService, options *types.ServerOptions) *HTTPServer {
 	s := &HTTPServer{
 		service: service,
 		server: &http.Server{
-			Addr:              address,
+			Addr:              options.Address,
 			ReadHeaderTimeout: 10 * time.Second,
 		},
+		capabilities: options.Capabilities,
 	}
-	s.server.Handler = newHTTPHandler(service)
+	s.server.Handler = newHTTPHandler(service, options.Capabilities)
 	return s
 }
 
@@ -36,18 +38,18 @@ func (s *HTTPServer) Initialize(ctx context.Context, options any) error {
 }
 
 // ListPrompts implements the Server interface
-func (s *HTTPServer) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
-	return s.service.ListPrompts(ctx)
+func (s *HTTPServer) ListPrompts(ctx context.Context, cursor string) (*types.PromptListResult, error) {
+	return s.service.ListPrompts(ctx, cursor)
 }
 
 // GetPrompt implements the Server interface
-func (s *HTTPServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
+func (s *HTTPServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
 	return s.service.GetPrompt(ctx, name, args)
 }
 
 // ListTools implements the Server interface
-func (s *HTTPServer) ListTools(ctx context.Context) ([]types.Tool, error) {
-	return s.service.ListTools(ctx)
+func (s *HTTPServer) ListTools(ctx context.Context, cursor string) (*types.ToolListResult, error) {
+	return s.service.ListTools(ctx, cursor)
 }
 
 // CallTool implements the Server interface
@@ -56,13 +58,23 @@ func (s *HTTPServer) CallTool(ctx context.Context, name string, args map[string]
 }
 
 // ListResources implements the Server interface
-func (s *HTTPServer) ListResources(ctx context.Context) ([]types.Resource, error) {
-	return s.service.ListResources(ctx)
+func (s *HTTPServer) ListResources(ctx context.Context, cursor string) (*types.ResourceListResult, error) {
+	return s.service.ListResources(ctx, cursor)
 }
 
 // ReadResource implements the Server interface
-func (s *HTTPServer) ReadResource(ctx context.Context, name string) ([]byte, string, error) {
-	return s.service.ReadResource(ctx, name)
+func (s *HTTPServer) ReadResource(ctx context.Context, uri string) (*types.ResourceContent, error) {
+	return s.service.ReadResource(ctx, uri)
+}
+
+// ListResourceTemplates implements the Server interface
+func (s *HTTPServer) ListResourceTemplates(ctx context.Context) ([]types.ResourceTemplate, error) {
+	return s.service.ListResourceTemplates(ctx)
+}
+
+// SubscribeToResource implements the Server interface
+func (s *HTTPServer) SubscribeToResource(ctx context.Context, uri string) error {
+	return s.service.SubscribeToResource(ctx, uri)
 }
 
 // Start starts the HTTP server
