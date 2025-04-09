@@ -82,7 +82,9 @@ func main() {
     // Create client
     client, err := mcp.NewClient(&types.ClientOptions{
         ServerAddress: "localhost:8080",
-        Type:         "sse", // or "http"
+        Type:         "http", // or "sse", "websocket"
+        UseJSONRPC: true,
+        SubscribeToNotifications: true,
     })
     if err != nil {
         log.Fatal(err)
@@ -99,58 +101,81 @@ func main() {
     service := client.Service()
 
     // Use service
-    prompts, err := service.ListPrompts(ctx)
+    result, err := service.ListPrompts(ctx, "")
     if err != nil {
         log.Fatal(err)
     }
-    log.Printf("Available prompts: %v", prompts)
+    log.Printf("Available prompts: %v", result.Prompts)
+
+    // Get next page if available
+    if result.NextCursor != "" {
+        nextPage, err := service.ListPrompts(ctx, result.NextCursor)
+        if err != nil {
+            log.Fatal(err)
+        }
+        log.Printf("Next page prompts: %v", nextPage.Prompts)
+    }
 }
 ```
 
 ## Response Structure
 
-All API responses follow a unified structure:
+### JSON-RPC Responses
+
+For JSON-RPC endpoints, responses follow the JSON-RPC 2.0 specification with a unified response handling system across all transport layers:
 
 ```go
-type Response struct {
-    Success bool        `json:"success"`
-    Result  interface{} `json:"result,omitempty"`
-    Error   *ErrorInfo  `json:"error,omitempty"`
+type JSONRPCResponse struct {
+    JSONRPC string        `json:"jsonrpc"`
+    ID      interface{}   `json:"id"`
+    Result  interface{}   `json:"result,omitempty"`
+    Error   *JSONRPCError `json:"error,omitempty"`
 }
 
-type ErrorInfo struct {
-    Code    string `json:"code"`
-    Message string `json:"message"`
+type JSONRPCError struct {
+    Code    int         `json:"code"`
+    Message string      `json:"message"`
+    Data    interface{} `json:"data,omitempty"`
 }
 ```
 
-Success Response Example:
+JSON-RPC Success Response Example:
 ```json
 {
-    "success": true,
+    "jsonrpc": "2.0",
+    "id": 1,
     "result": {
-        "name": "example_prompt",
-        "description": "An example prompt"
+        "prompts": [
+            {
+                "name": "example_prompt",
+                "description": "An example prompt"
+            }
+        ],
+        "nextCursor": ""
     }
 }
 ```
 
-Error Response Example:
+JSON-RPC Error Response Example:
 ```json
 {
-    "success": false,
+    "jsonrpc": "2.0",
+    "id": 1,
     "error": {
-        "code": "invalid_request",
-        "message": "Invalid request parameters"
+        "code": -32602,
+        "message": "Invalid params",
+        "data": "Missing required parameter: name"
     }
 }
 ```
+
+The library provides a unified response handling system that works across HTTP, WebSocket, and stdio transport layers, ensuring consistent error handling and response formatting.
 
 ## Examples
 
 - [Echo Server](examples/echo/main.go) - A simple echo server example
 - [Weather Service](examples/weather/main.go) - A weather service example using OpenWeatherMap API
-- [Advanced Usage](examples/advanced/main.go) - Example showcasing advanced features
+- [App Launcher](examples/app-launcher/main.go) - A macOS application launcher example with stdio server support
 
 ## API Documentation
 
@@ -171,12 +196,29 @@ The `MCPService` interface defines the core functionality:
 
 ```go
 type MCPService interface {
-    ListPrompts(ctx context.Context) ([]Prompt, error)
-    GetPrompt(ctx context.Context, name string, args map[string]any) (*GetPromptResult, error)
-    ListTools(ctx context.Context) ([]Tool, error)
+    // ListPrompts returns a list of available prompts with pagination support
+    ListPrompts(ctx context.Context, cursor string) (*PromptListResult, error)
+
+    // GetPrompt retrieves a specific prompt by name with optional arguments
+    GetPrompt(ctx context.Context, name string, args map[string]any) (*PromptResult, error)
+
+    // ListTools returns a list of available tools with pagination support
+    ListTools(ctx context.Context, cursor string) (*ToolListResult, error)
+
+    // CallTool invokes a specific tool by name with arguments
     CallTool(ctx context.Context, name string, args map[string]any) (*CallToolResult, error)
-    ListResources(ctx context.Context) ([]Resource, error)
-    ReadResource(ctx context.Context, name string) ([]byte, string, error)
+
+    // ListResources returns a list of available resources with pagination support
+    ListResources(ctx context.Context, cursor string) (*ResourceListResult, error)
+
+    // ReadResource reads the content of a specific resource
+    ReadResource(ctx context.Context, uri string) (*ResourceContent, error)
+
+    // ListResourceTemplates returns a list of available resource templates
+    ListResourceTemplates(ctx context.Context) ([]ResourceTemplate, error)
+
+    // SubscribeToResource subscribes to changes on a specific resource
+    SubscribeToResource(ctx context.Context, uri string) error
 }
 ```
 
@@ -186,8 +228,13 @@ Clients access services through the `types.Client` interface:
 
 ```go
 type Client interface {
+    // Connect establishes a connection to the server
     Connect(ctx context.Context) error
+
+    // Close terminates the connection
     Close() error
+
+    // Service returns the underlying MCPService interface
     Service() MCPService
 }
 ```
@@ -205,3 +252,57 @@ Contributions are welcome! Please follow these steps:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+
+## Updated to MCP Specification 2025-03-26
+
+This library has been updated to support the Model Context Protocol (MCP) 2025-03-26 specification. Major updates include:
+
+### New Features
+
+- **Complete JSON-RPC Support**: Implemented JSON-RPC 2.0 API endpoints compliant with the latest MCP specification
+- **Enhanced Multimodal Content**: Support for text, image, audio, and embedded resource content transmission
+- **Pagination Support**: All list APIs now support cursor-based pagination
+- **Resource Templates**: Support for parameterized resource URI templates
+- **Resource Subscriptions**: Support for client subscriptions to resource change notifications
+- **Rich Server Capabilities**: More granular server capability declarations
+- **Unified Response Handling**: Standardized response handling across different transport layers
+
+### Backward Compatibility
+
+- Preserved original REST API endpoints to ensure compatibility with older clients
+- Notification system supports both new and old notification formats
+
+### Example Usage
+
+```go
+// Create server
+server, err := mcp.NewServer(service, &types.ServerOptions{
+    Address: ":8080",
+    Capabilities: &types.ServerCapabilities{
+        Prompts: &types.PromptCapabilities{
+            ListChanged: true,
+        },
+        Resources: &types.ResourceCapabilities{
+            ListChanged: true,
+            Subscribe: true,
+            Templates: true,
+        },
+    },
+})
+
+// Create client
+client, err := mcp.NewClient(&types.ClientOptions{
+    ServerAddress: "localhost:8080",
+    Type: "http",
+    UseJSONRPC: true,
+    SubscribeToNotifications: true,
+})
+
+// Get prompts list (with pagination support)
+result, err := client.Service().ListPrompts(ctx, "")
+// Get next page
+nextPage, err := client.Service().ListPrompts(ctx, result.NextCursor)
+
+// Subscribe to resource changes
+err := client.Service().SubscribeToResource(ctx, "file:///example.txt")
+```

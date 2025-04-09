@@ -19,8 +19,8 @@ type Tool = types.Tool
 // Resource represents a resource that can be accessed
 type Resource = types.Resource
 
-// GetPromptResult represents the result of getting a prompt
-type GetPromptResult = types.GetPromptResult
+// PromptResult represents the result of getting a prompt
+type PromptResult = types.PromptResult
 
 // CallToolResult represents the result of calling a tool
 type CallToolResult = types.CallToolResult

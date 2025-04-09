@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/virgoC0der/go-mcp"
 	"github.com/virgoC0der/go-mcp/internal/types"
@@ -30,9 +31,12 @@ func NewWeatherServer(apiKey string) *WeatherServer {
 			{
 				Name:        "weather",
 				Description: "Get weather information for a city",
-				Template:    "The weather in {{.city}} is {{.temperature}}°C with {{.description}}",
-				Metadata: map[string]interface{}{
-					"required": []string{"city"},
+				Arguments: []types.PromptArgument{
+					{
+						Name:        "city",
+						Description: "City name",
+						Required:    true,
+					},
 				},
 			},
 		},
@@ -40,19 +44,24 @@ func NewWeatherServer(apiKey string) *WeatherServer {
 			{
 				Name:        "getWeather",
 				Description: "Get weather information for a city",
-				Parameters: map[string]interface{}{
-					"city": map[string]interface{}{
-						"type":        "string",
-						"description": "City name",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"city": map[string]interface{}{
+							"type":        "string",
+							"description": "City name",
+						},
 					},
+					"required": []string{"city"},
 				},
 			},
 		},
 		resources: []types.Resource{
 			{
+				URI:         "cities",
 				Name:        "cities",
-				Type:        "application/json",
 				Description: "List of supported cities",
+				MimeType:    "application/json",
 			},
 		},
 	}
@@ -67,13 +76,26 @@ func (s *WeatherServer) Initialize(ctx context.Context, options any) error {
 	return nil
 }
 
+// Start implements the Server interface
+func (s *WeatherServer) Start() error {
+	return nil
+}
+
+// Shutdown implements the Server interface
+func (s *WeatherServer) Shutdown(ctx context.Context) error {
+	return nil
+}
+
 // ListPrompts implements the Server interface
-func (s *WeatherServer) ListPrompts(ctx context.Context) ([]types.Prompt, error) {
-	return s.prompts, nil
+func (s *WeatherServer) ListPrompts(ctx context.Context, cursor string) (*types.PromptListResult, error) {
+	return &types.PromptListResult{
+		Prompts:    s.prompts,
+		NextCursor: "",
+	}, nil
 }
 
 // GetPrompt implements the Server interface
-func (s *WeatherServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.GetPromptResult, error) {
+func (s *WeatherServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
 	if name != "weather" {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
@@ -89,25 +111,34 @@ func (s *WeatherServer) GetPrompt(ctx context.Context, name string, args map[str
 		return nil, err
 	}
 
-	// Parse weather data
-	data, ok := result.Output.(map[string]interface{})
-	if !ok {
+	// Get the text content from the tool result
+	if len(result.Content) == 0 || result.Content[0].Type != "text" {
 		return nil, fmt.Errorf("invalid weather data format")
 	}
 
-	return &types.GetPromptResult{
-		Content: fmt.Sprintf(
-			"The weather in %s is %.1f°C with %s",
-			city,
-			data["temperature"].(float64),
-			data["description"].(string),
-		),
+	// Use the text content directly
+	responseText := result.Content[0].Text
+
+	return &types.PromptResult{
+		Description: "Weather information",
+		Messages: []types.Message{
+			{
+				Role: "assistant",
+				Content: types.Content{
+					Type: "text",
+					Text: responseText,
+				},
+			},
+		},
 	}, nil
 }
 
 // ListTools implements the Server interface
-func (s *WeatherServer) ListTools(ctx context.Context) ([]types.Tool, error) {
-	return s.tools, nil
+func (s *WeatherServer) ListTools(ctx context.Context, cursor string) (*types.ToolListResult, error) {
+	return &types.ToolListResult{
+		Tools:      s.tools,
+		NextCursor: "",
+	}, nil
 }
 
 // CallTool implements the Server interface
@@ -129,12 +160,30 @@ func (s *WeatherServer) CallTool(ctx context.Context, name string, args map[stri
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get weather data: %w", err)
+		// 返回错误结果
+		return &types.CallToolResult{
+			Content: []types.ToolContent{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to get weather data: %v", err),
+				},
+			},
+			IsError: true,
+		}, nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("weather API error: %s", resp.Status)
+		// 返回错误结果
+		return &types.CallToolResult{
+			Content: []types.ToolContent{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Weather API error: %s", resp.Status),
+				},
+			},
+			IsError: true,
+		}, nil
 	}
 
 	var data struct {
@@ -147,26 +196,42 @@ func (s *WeatherServer) CallTool(ctx context.Context, name string, args map[stri
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, fmt.Errorf("failed to parse weather data: %w", err)
+		// 返回错误结果
+		return &types.CallToolResult{
+			Content: []types.ToolContent{
+				{
+					Type: "text",
+					Text: fmt.Sprintf("Failed to parse weather data: %v", err),
+				},
+			},
+			IsError: true,
+		}, nil
 	}
 
 	return &types.CallToolResult{
-		Output: map[string]interface{}{
-			"temperature": data.Main.Temp,
-			"description": data.Weather[0].Description,
+		Content: []types.ToolContent{
+			{
+				Type: "text",
+				Text: fmt.Sprintf("Current weather in %s:\nTemperature: %.1f°C\nConditions: %s",
+					city, data.Main.Temp, data.Weather[0].Description),
+			},
 		},
+		IsError: false,
 	}, nil
 }
 
 // ListResources implements the Server interface
-func (s *WeatherServer) ListResources(ctx context.Context) ([]types.Resource, error) {
-	return s.resources, nil
+func (s *WeatherServer) ListResources(ctx context.Context, cursor string) (*types.ResourceListResult, error) {
+	return &types.ResourceListResult{
+		Resources:  s.resources,
+		NextCursor: "",
+	}, nil
 }
 
 // ReadResource implements the Server interface
-func (s *WeatherServer) ReadResource(ctx context.Context, name string) ([]byte, string, error) {
-	if name != "cities" {
-		return nil, "", fmt.Errorf("unknown resource: %s", name)
+func (s *WeatherServer) ReadResource(ctx context.Context, uri string) (*types.ResourceContent, error) {
+	if uri != "cities" {
+		return nil, fmt.Errorf("unknown resource: %s", uri)
 	}
 
 	cities := []string{
@@ -179,10 +244,24 @@ func (s *WeatherServer) ReadResource(ctx context.Context, name string) ([]byte, 
 
 	content, err := json.Marshal(cities)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to marshal cities: %w", err)
+		return nil, fmt.Errorf("failed to marshal cities: %w", err)
 	}
 
-	return content, "application/json", nil
+	return &types.ResourceContent{
+		URI:      uri,
+		MimeType: "application/json",
+		Text:     string(content),
+	}, nil
+}
+
+// ListResourceTemplates implements the Server interface
+func (s *WeatherServer) ListResourceTemplates(ctx context.Context) ([]types.ResourceTemplate, error) {
+	return []types.ResourceTemplate{}, nil
+}
+
+// SubscribeToResource implements the Server interface
+func (s *WeatherServer) SubscribeToResource(ctx context.Context, uri string) error {
+	return fmt.Errorf("subscription not supported")
 }
 
 func main() {
@@ -194,17 +273,20 @@ func main() {
 	// Create weather service
 	service := NewWeatherServer(apiKey)
 
-	// Create HTTP server
+	// Create HTTP server with capabilities
 	httpServer, err := mcp.NewServer(service, &types.ServerOptions{
 		Address: ":8080",
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create WebSocket server
-	wsServer, err := mcp.NewServer(service, &types.ServerOptions{
-		Address: ":8081",
+		Capabilities: &types.ServerCapabilities{
+			Tools: &types.ToolCapabilities{
+				ListChanged: true,
+			},
+			Prompts: &types.PromptCapabilities{
+				ListChanged: true,
+			},
+			Resources: &types.ResourceCapabilities{
+				ListChanged: true,
+			},
+		},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -215,31 +297,38 @@ func main() {
 	if err := httpServer.Initialize(ctx, nil); err != nil {
 		log.Fatal(err)
 	}
-	if err := wsServer.Initialize(ctx, nil); err != nil {
-		log.Fatal(err)
-	}
 
-	// Start servers
-	if err := httpServer.Start(); err != nil {
-		log.Fatal(err)
-	}
-	if err := wsServer.Start(); err != nil {
-		log.Fatal(err)
-	}
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start servers in goroutines
+	go func() {
+		log.Printf("Starting HTTP server on :8080")
+		if err := httpServer.Start(); err != nil {
+			log.Printf("HTTP server error: %v", err)
+			cancel()
+		}
+	}()
 
 	// Wait for interrupt signal
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
+
+	select {
+	case <-sigCh:
+		log.Println("Received shutdown signal")
+	case <-ctx.Done():
+		log.Println("Server error occurred")
+	}
 
 	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Error shutting down HTTP server: %v", err)
 	}
-	if err := wsServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Error shutting down WebSocket server: %v", err)
-	}
+
+	log.Println("Servers stopped")
 }

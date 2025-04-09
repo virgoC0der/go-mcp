@@ -78,3 +78,132 @@ func TestCalculateTotalPages(t *testing.T) {
 		}
 	}
 }
+
+func TestApplyPaginationToSlice(t *testing.T) {
+	// Create test data - a slice of integers
+	testData := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	testCases := []struct {
+		name          string
+		data          interface{}
+		options       PaginationOptions
+		expectedItems []int
+		expectedTotal int
+		expectedError bool
+	}{
+		{
+			name:          "First page",
+			data:          testData,
+			options:       PaginationOptions{Page: 1, PageSize: 3},
+			expectedItems: []int{1, 2, 3},
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Middle page",
+			data:          testData,
+			options:       PaginationOptions{Page: 2, PageSize: 3},
+			expectedItems: []int{4, 5, 6},
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Last complete page",
+			data:          testData,
+			options:       PaginationOptions{Page: 3, PageSize: 3},
+			expectedItems: []int{7, 8, 9},
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Partial last page",
+			data:          testData,
+			options:       PaginationOptions{Page: 4, PageSize: 3},
+			expectedItems: []int{10},
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Empty result (page beyond end)",
+			data:          testData,
+			options:       PaginationOptions{Page: 5, PageSize: 3},
+			expectedItems: []int{},
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Invalid page number",
+			data:          testData,
+			options:       PaginationOptions{Page: 0, PageSize: 3},
+			expectedItems: []int{1, 2, 3},
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Invalid page size",
+			data:          testData,
+			options:       PaginationOptions{Page: 1, PageSize: 0},
+			expectedItems: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}[:DefaultPaginationOptions().PageSize], // Should use default page size
+			expectedTotal: 10,
+			expectedError: false,
+		},
+		{
+			name:          "Empty slice",
+			data:          []int{},
+			options:       PaginationOptions{Page: 1, PageSize: 3},
+			expectedItems: []int{},
+			expectedTotal: 0,
+			expectedError: false,
+		},
+		{
+			name:          "Non-slice input",
+			data:          123, // Not a slice
+			options:       PaginationOptions{Page: 1, PageSize: 3},
+			expectedItems: nil,
+			expectedTotal: 0,
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, total, err := ApplyPaginationToSlice(tc.data, tc.options)
+
+			// Check error
+			if tc.expectedError && err == nil {
+				t.Errorf("Expected an error but got none")
+			}
+			if !tc.expectedError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+
+			// If we expect an error, don't check the results
+			if tc.expectedError {
+				return
+			}
+
+			// Check total
+			if total != tc.expectedTotal {
+				t.Errorf("Total items mismatch: expected %d, got %d", tc.expectedTotal, total)
+			}
+
+			// Check result items
+			if result != nil {
+				resultItems, ok := result.([]int)
+				if !ok && len(tc.expectedItems) > 0 {
+					t.Fatalf("Result is not of expected type []int")
+				}
+
+				if len(resultItems) != len(tc.expectedItems) {
+					t.Errorf("Items length mismatch: expected %d, got %d", len(tc.expectedItems), len(resultItems))
+				}
+
+				for i, v := range tc.expectedItems {
+					if i < len(resultItems) && resultItems[i] != v {
+						t.Errorf("Item at index %d mismatch: expected %d, got %d", i, v, resultItems[i])
+					}
+				}
+			}
+		})
+	}
+}
