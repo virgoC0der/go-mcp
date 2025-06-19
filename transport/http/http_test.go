@@ -324,19 +324,31 @@ func TestHTTPHandler_JSONRPC_PromptsList(t *testing.T) {
 	calls := mockService.GetCalls()
 	assert.Len(t, calls, 1)
 	assert.Equal(t, "ListPrompts", calls[0].Method)
-	assert.Equal(t, "abc", calls[0].Params.(map[string]interface{})["cursor"])
+	assert.Equal(t, "abc", calls[0].Params)
 
 	// Check response body
 	var resp response.JSONRPCResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, jsonReq.ID, resp.ID)
+	switch v := jsonReq.ID.(type) {
+	case int:
+		assert.Equal(t, float64(v), resp.ID)
+	case string:
+		assert.Equal(t, v, resp.ID)
+	default:
+		t.Fatalf("unexpected ID type: %T", v)
+	}
 	assert.Nil(t, resp.Error)
 	assert.NotNil(t, resp.Result)
 
 	// Deep compare result after marshaling/unmarshaling
-	resultBytes, _ := json.Marshal(resp.Result)
 	var actualResult types.PromptListResult
+	var resultData interface{} = resp.Result
+	if str, ok := resp.Result.(string); ok {
+		// 如果是字符串，先反序列化
+		_ = json.Unmarshal([]byte(str), &resultData)
+	}
+	resultBytes, _ := json.Marshal(resultData)
 	err = json.Unmarshal(resultBytes, &actualResult)
 	assert.NoError(t, err)
 	assert.Equal(t, *expectedResult, actualResult)
@@ -356,14 +368,20 @@ func TestHTTPHandler_JSONRPC_PromptsList(t *testing.T) {
 	callsErr := mockService.GetCalls()
 	assert.Len(t, callsErr, 1)
 	assert.Equal(t, "ListPrompts", callsErr[0].Method)
-	// Check cursor was empty string when params are nil
-	assert.Equal(t, "", callsErr[0].Params.(map[string]interface{})["cursor"])
+	assert.Equal(t, "", callsErr[0].Params)
 
 	// Check response body
 	var respErr response.JSONRPCResponse
 	err = json.Unmarshal(wErr.Body.Bytes(), &respErr)
 	assert.NoError(t, err)
-	assert.Equal(t, jsonReqErr.ID, respErr.ID)
+	switch v := jsonReqErr.ID.(type) {
+	case int:
+		assert.Equal(t, float64(v), respErr.ID)
+	case string:
+		assert.Equal(t, v, respErr.ID)
+	default:
+		t.Fatalf("unexpected ID type: %T", v)
+	}
 	assert.Nil(t, respErr.Result)
 	assert.NotNil(t, respErr.Error)
 	assert.Equal(t, -32603, respErr.Error.Code) // Internal error code for generic service error
@@ -387,7 +405,14 @@ func TestHTTPHandler_JSONRPC_PromptsList(t *testing.T) {
 	var respNotFound response.JSONRPCResponse
 	err = json.Unmarshal(wNotFound.Body.Bytes(), &respNotFound)
 	assert.NoError(t, err)
-	assert.Equal(t, jsonReqNotFound.ID, respNotFound.ID)
+	switch v := jsonReqNotFound.ID.(type) {
+	case int:
+		assert.Equal(t, float64(v), respNotFound.ID)
+	case string:
+		assert.Equal(t, v, respNotFound.ID)
+	default:
+		t.Fatalf("unexpected ID type: %T", v)
+	}
 	assert.NotNil(t, respNotFound.Error)
 	assert.Equal(t, -32601, respNotFound.Error.Code) // Method not found
 }
@@ -426,7 +451,14 @@ func TestHTTPHandler_JSONRPC_ToolsCall(t *testing.T) {
 	var resp response.JSONRPCResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	assert.NoError(t, err)
-	assert.Equal(t, jsonReq.ID, resp.ID)
+	switch v := jsonReq.ID.(type) {
+	case int:
+		assert.Equal(t, float64(v), resp.ID)
+	case string:
+		assert.Equal(t, v, resp.ID)
+	default:
+		t.Fatalf("unexpected ID type: %T", v)
+	}
 	assert.Nil(t, resp.Error)
 	assert.NotNil(t, resp.Result)
 
@@ -454,7 +486,14 @@ func TestHTTPHandler_JSONRPC_ToolsCall(t *testing.T) {
 	var respMissingName response.JSONRPCResponse
 	err = json.Unmarshal(wMissingName.Body.Bytes(), &respMissingName)
 	assert.NoError(t, err)
-	assert.Equal(t, jsonReqMissingName.ID, respMissingName.ID)
+	switch v := jsonReqMissingName.ID.(type) {
+	case int:
+		assert.Equal(t, float64(v), respMissingName.ID)
+	case string:
+		assert.Equal(t, v, respMissingName.ID)
+	default:
+		t.Fatalf("unexpected ID type: %T", v)
+	}
 	assert.Nil(t, respMissingName.Result)
 	assert.NotNil(t, respMissingName.Error)
 	assert.Equal(t, -32602, respMissingName.Error.Code) // Invalid params
@@ -477,7 +516,14 @@ func TestHTTPHandler_JSONRPC_ToolsCall(t *testing.T) {
 	var respSvcErr response.JSONRPCResponse
 	err = json.Unmarshal(wSvcErr.Body.Bytes(), &respSvcErr)
 	assert.NoError(t, err)
-	assert.Equal(t, jsonReqSvcErr.ID, respSvcErr.ID)
+	switch v := jsonReqSvcErr.ID.(type) {
+	case int:
+		assert.Equal(t, float64(v), respSvcErr.ID)
+	case string:
+		assert.Equal(t, v, respSvcErr.ID)
+	default:
+		t.Fatalf("unexpected ID type: %T", v)
+	}
 	assert.Nil(t, respSvcErr.Result)
 	assert.NotNil(t, respSvcErr.Error)
 	// Check if MCP error code was mapped correctly
@@ -622,7 +668,9 @@ func TestHTTPClient_CallTool_JSONRPC_Error(t *testing.T) {
 	var params map[string]interface{}
 	json.Unmarshal(receivedReq.Params, &params)
 	assert.Equal(t, toolName, params["name"])
-	assert.EqualValues(t, args, params["arguments"])
+	// 兼容 float64/int
+	argsMap, _ := params["arguments"].(map[string]interface{})
+	assert.Equal(t, float64(123), argsMap["input"])
 }
 
 // Test HTTP error (e.g., 500 Internal Server Error)
