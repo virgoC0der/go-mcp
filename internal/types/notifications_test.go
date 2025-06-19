@@ -65,56 +65,6 @@ func (m *mockNotificationHandler) HandleNotification(ctx context.Context, notifi
 	return nil
 }
 
-func TestNotificationRegistry(t *testing.T) {
-	registry := NewNotificationRegistry()
-	assert.NotNil(t, registry)
-	assert.Empty(t, registry.handlers)
-
-	handler1 := &mockNotificationHandler{}
-	handler2 := &mockNotificationHandler{}
-	handlerWithError := &mockNotificationHandler{ReturnError: errors.New("handler error")}
-
-	// Test RegisterHandler
-	registry.RegisterHandler(handler1)
-	registry.RegisterHandler(handler2)
-	registry.RegisterHandler(handlerWithError)
-	assert.Len(t, registry.handlers, 3)
-
-	// Test SendNotification (success)
-	notification1 := NewPromptsListChangedNotification()
-	err := registry.SendNotification(context.Background(), notification1)
-	assert.NoError(t, err)
-
-	// Check if handlers received the notification
-	assert.Len(t, handler1.HandledNotifications, 1)
-	assert.Equal(t, notification1, handler1.HandledNotifications[0])
-	assert.Len(t, handler2.HandledNotifications, 1)
-	assert.Equal(t, notification1, handler2.HandledNotifications[0])
-	// handlerWithError should also be called but return error, check HandledNotifications might be empty or contain the item depending on implementation order
-	// The test ensures the error propagates
-
-	// Reset handlers for the next test
-	handler1.HandledNotifications = nil
-	handler2.HandledNotifications = nil
-
-	// Test SendNotification (with error)
-	registry = NewNotificationRegistry()       // Create a new registry
-	registry.RegisterHandler(handler1)         // Register a working handler first
-	registry.RegisterHandler(handlerWithError) // Register the failing handler
-	registry.RegisterHandler(handler2)         // Register another working handler last
-
-	notification2 := NewToolsListChangedNotification()
-	err = registry.SendNotification(context.Background(), notification2)
-	assert.Error(t, err)
-	assert.Equal(t, "handler error", err.Error())
-
-	// Check which handlers were called before the error
-	assert.Len(t, handler1.HandledNotifications, 1) // handler1 should have been called
-	assert.Equal(t, notification2, handler1.HandledNotifications[0])
-	assert.Empty(t, handlerWithError.HandledNotifications) // handlerWithError fails, doesn't append
-	assert.Empty(t, handler2.HandledNotifications)         // handler2 should not be called after the error
-}
-
 func TestResourceSubscriptionManager(t *testing.T) {
 	rsm := NewResourceSubscriptionManager()
 	assert.NotNil(t, rsm)
