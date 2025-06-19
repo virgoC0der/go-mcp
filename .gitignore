@@ -1,3 +1,6 @@
 .idea
 .vscode
 coverage.txt
+
+# YoYo AI version control directory
+.yoyo/

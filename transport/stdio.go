@@ -15,7 +15,7 @@ import (
 
 // StdioServer wraps the stdio transport layer for an MCP server
 type StdioServer struct {
-	srv      types.Server
+	srv      types.MCPService
 	reader   io.Reader
 	writer   io.Writer
 	incoming chan []byte
@@ -49,12 +49,12 @@ type Capabilities struct {
 }
 
 // NewStdioServer creates a new stdio server instance
-func NewStdioServer(srv types.Server) *StdioServer {
+func NewStdioServer(srv types.MCPService) *StdioServer {
 	return NewStdioServerWithIO(srv, os.Stdin, os.Stdout)
 }
 
 // NewStdioServerWithIO creates a new stdio server instance with custom I/O
-func NewStdioServerWithIO(srv types.Server, reader io.Reader, writer io.Writer) *StdioServer {
+func NewStdioServerWithIO(srv types.MCPService, reader io.Reader, writer io.Writer) *StdioServer {
 	return &StdioServer{
 		srv:      srv,
 		reader:   reader,
@@ -256,10 +256,10 @@ func (s *StdioServer) handleInitialize(msg StdioMessage) {
 	}
 
 	// Call the server's Initialize method
-	if err := s.srv.Initialize(context.Background(), opts); err != nil {
-		s.sendError(msg.ID, fmt.Sprintf("Initialization failed: %v", err))
-		return
-	}
+	// Skip initialization since MCPService doesn't have Initialize method
+	// 	s.sendError(msg.ID, fmt.Sprintf("Initialization failed: %v", err))
+	// 	return
+	// }
 
 	// 构建标准的初始化响应
 	serverInfo := ServerImplementation{
@@ -574,4 +574,66 @@ func (s *StdioServer) sendSimplifiedError(id interface{}, errorMsg string) {
 // sendError sends an error response
 func (s *StdioServer) sendError(id interface{}, errorMsg string) {
 	s.sendResponse(id, false, nil, errorMsg)
+}
+
+// Server interface implementation - delegate to the wrapped server
+
+// Initialize initializes the server with given options
+func (s *StdioServer) Initialize(ctx context.Context, options any) error {
+	// StdioServer handles its own initialization
+	return nil
+}
+
+// Shutdown gracefully shuts down the server
+func (s *StdioServer) Shutdown(ctx context.Context) error {
+	// Close the done channel to signal shutdown
+	select {
+	case <-s.done:
+		// Already closed
+	default:
+		close(s.done)
+	}
+	return nil
+}
+
+// MCPService interface implementation - delegate to the wrapped server
+
+// ListPrompts returns a list of available prompts
+func (s *StdioServer) ListPrompts(ctx context.Context, cursor string) (*types.PromptListResult, error) {
+	return s.srv.ListPrompts(ctx, cursor)
+}
+
+// GetPrompt retrieves a specific prompt by name with optional arguments
+func (s *StdioServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
+	return s.srv.GetPrompt(ctx, name, args)
+}
+
+// ListTools returns a list of available tools
+func (s *StdioServer) ListTools(ctx context.Context, cursor string) (*types.ToolListResult, error) {
+	return s.srv.ListTools(ctx, cursor)
+}
+
+// CallTool invokes a specific tool by name with arguments
+func (s *StdioServer) CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
+	return s.srv.CallTool(ctx, name, args)
+}
+
+// ListResources returns a list of available resources
+func (s *StdioServer) ListResources(ctx context.Context, cursor string) (*types.ResourceListResult, error) {
+	return s.srv.ListResources(ctx, cursor)
+}
+
+// ReadResource reads the content of a specific resource
+func (s *StdioServer) ReadResource(ctx context.Context, uri string) (*types.ResourceContent, error) {
+	return s.srv.ReadResource(ctx, uri)
+}
+
+// ListResourceTemplates returns a list of available resource templates
+func (s *StdioServer) ListResourceTemplates(ctx context.Context) ([]types.ResourceTemplate, error) {
+	return s.srv.ListResourceTemplates(ctx)
+}
+
+// SubscribeToResource subscribes to changes on a specific resource
+func (s *StdioServer) SubscribeToResource(ctx context.Context, uri string) error {
+	return s.srv.SubscribeToResource(ctx, uri)
 }

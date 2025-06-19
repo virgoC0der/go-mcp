@@ -13,16 +13,33 @@ import (
 	"syscall"
 
 	"github.com/virgoC0der/go-mcp"
-
 	"github.com/virgoC0der/go-mcp/internal/types"
-	"github.com/virgoC0der/go-mcp/transport"
 )
 
-// AppLauncherServer implements the MCP service interface
+// AppLauncherServer implements the Server interface
 type AppLauncherServer struct {
 	prompts   []types.Prompt
 	tools     []types.Tool
 	resources []types.Resource
+}
+
+// Initialize implements the Server interface
+func (s *AppLauncherServer) Initialize(ctx context.Context, options any) error {
+	// Check if running on macOS
+	if runtime.GOOS != "darwin" {
+		return fmt.Errorf("this server is designed to run on macOS only, current OS: %s", runtime.GOOS)
+	}
+	return nil
+}
+
+// Start implements Server interface
+func (s *AppLauncherServer) Start() error {
+	return nil
+}
+
+// Shutdown implements the Server interface
+func (s *AppLauncherServer) Shutdown(ctx context.Context) error {
+	return nil
 }
 
 // NewAppLauncherServer creates a new app launcher server instance
@@ -67,15 +84,6 @@ func NewAppLauncherServer() *AppLauncherServer {
 		},
 	}
 	return s
-}
-
-// Initialize implements the Server interface
-func (s *AppLauncherServer) Initialize(ctx context.Context, options any) error {
-	// Check if running on macOS
-	if runtime.GOOS != "darwin" {
-		return fmt.Errorf("this server is designed to run on macOS only, current OS: %s", runtime.GOOS)
-	}
-	return nil
 }
 
 // ListPrompts implements the Server interface
@@ -205,7 +213,7 @@ func (s *AppLauncherServer) ReadResource(ctx context.Context, uri string) (*type
 		"TextEdit",
 		"Preview",
 		"GoLand",
-		"Edge",
+		"Microsoft Edge",
 		"Cursor",
 		"Warp",
 		"iTerm 2",
@@ -233,11 +241,6 @@ func (s *AppLauncherServer) SubscribeToResource(ctx context.Context, uri string)
 	return fmt.Errorf("resource subscription not supported")
 }
 
-// Shutdown implements the Server interface
-func (s *AppLauncherServer) Shutdown(ctx context.Context) error {
-	return nil
-}
-
 func main() {
 	// Create app launcher service
 	service := NewAppLauncherServer()
@@ -246,55 +249,22 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Create HTTP server with capabilities
-	httpServer, err := mcp.NewServer(service, &types.ServerOptions{
-		Address: ":8080",
-		Capabilities: &types.ServerCapabilities{
-			Tools: &types.ToolCapabilities{
-				ListChanged: true,
-			},
-			Prompts: &types.PromptCapabilities{
-				ListChanged: true,
-			},
-			Resources: &types.ResourceCapabilities{
-				ListChanged: true,
-			},
-		},
-	})
+	// 用工厂方法创建 server
+	server, err := mcp.NewServer(service, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create server: %v", err)
 	}
 
-	// Initialize HTTP server
-	if err := httpServer.Initialize(ctx, nil); err != nil {
-		log.Fatalf("Failed to initialize HTTP server: %v", err)
-	}
-
-	// Create stdio server
-	// Since StdioServer expects types.Server but our service is types.MCPService,
-	// we need to use the HTTP server as the server implementation for stdio
-	stdioServer := transport.NewStdioServer(httpServer)
-
-	// Use WaitGroup to manage goroutines
+	// 用 WaitGroup 管理 goroutine
 	wg := sync.WaitGroup{}
-	wg.Add(1) // One for HTTP server, one for stdio server
+	wg.Add(1)
 
-	// Start HTTP server
+	// 启动 server
 	go func() {
 		defer wg.Done()
-		log.Printf("Starting HTTP server on :8080")
-		if err := httpServer.Start(); err != nil {
-			log.Printf("HTTP server error: %v", err)
-			cancel()
-		}
-	}()
-
-	// Start stdio server
-	go func() {
-		defer wg.Done()
-		log.Printf("Starting stdio server")
-		if err := stdioServer.Start(); err != nil {
-			log.Printf("Stdio server error: %v", err)
+		log.Printf("Starting server")
+		if err := server.Start(); err != nil {
+			log.Printf("Server error: %v", err)
 			cancel()
 		}
 	}()
@@ -320,14 +290,9 @@ func main() {
 	// Graceful shutdown
 	log.Println("Shutting down servers...")
 
-	// Stop stdio server
-	if err := stdioServer.Stop(); err != nil {
-		log.Printf("Stdio server shutdown error: %v", err)
-	}
-
-	// Shutdown HTTP server
-	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+	// 用 Shutdown(ctx) 替代 Stop()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
 	}
 
 	// Wait for servers to finish
