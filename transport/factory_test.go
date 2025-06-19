@@ -50,10 +50,10 @@ func TestNewServer(t *testing.T) {
 		server, err := NewServer(mockService, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, server)
-		// Check if it's an HTTP server (or the expected type)
-		_, ok := server.(*http.HTTPServer)
-		assert.True(t, ok, "Expected server to be *http.HTTPServer with nil options")
-		// Optionally check default address if accessible from HTTPServer
+		// Check if it's a Stdio server (or the expected type)
+		_, ok := server.(*StdioServer)
+		assert.True(t, ok, "Expected server to be *StdioServer with nil options")
+		// Optionally check default address if accessible from StdioServer
 	})
 
 	// Test with specific options
@@ -65,10 +65,10 @@ func TestNewServer(t *testing.T) {
 		server, err := NewServer(mockService, options)
 		assert.NoError(t, err)
 		assert.NotNil(t, server)
-		// Check if it's an HTTP server
-		_, ok := server.(*http.HTTPServer)
-		assert.True(t, ok, "Expected server to be *http.HTTPServer with specific options")
-		// Optionally check if the address was correctly passed to HTTPServer if accessible
+		// Check if it's a Stdio server
+		_, ok := server.(*StdioServer)
+		assert.True(t, ok, "Expected server to be *StdioServer with specific options")
+		// Optionally check if the address was correctly passed to StdioServer if accessible
 	})
 }
 

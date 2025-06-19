@@ -95,8 +95,8 @@ func (s *StdioServer) readLoop() {
 	}
 }
 
-// tryParseClaudeMessage tries to extract useful information from Claude's message format
-func tryParseClaudeMessage(data []byte) (*StdioMessage, error) {
+// TryParseClaudeMessage tries to extract useful information from Claude's message format
+func TryParseClaudeMessage(data []byte) (*StdioMessage, error) {
 	// First try to parse as raw JSON
 	var rawMsg map[string]interface{}
 	if err := json.Unmarshal(data, &rawMsg); err != nil {
@@ -206,7 +206,7 @@ func (s *StdioServer) handleMessage(data []byte) {
 	// Check if the message format is valid
 	if err != nil || msg.Method == "" {
 		// Try to parse as Claude format message
-		claudeMsg, parseErr := tryParseClaudeMessage(data)
+		claudeMsg, parseErr := TryParseClaudeMessage(data)
 		if parseErr != nil {
 			s.sendError(0, fmt.Sprintf("Invalid message format: %v", err))
 			return
@@ -256,10 +256,14 @@ func (s *StdioServer) handleInitialize(msg StdioMessage) {
 	}
 
 	// Call the server's Initialize method
-	// Skip initialization since MCPService doesn't have Initialize method
-	// 	s.sendError(msg.ID, fmt.Sprintf("Initialization failed: %v", err))
-	// 	return
-	// }
+	if srv, ok := s.srv.(interface {
+		Initialize(ctx context.Context, options any) error
+	}); ok {
+		if err := srv.Initialize(context.Background(), opts); err != nil {
+			s.sendError(msg.ID, fmt.Sprintf("Initialization failed: %v", err))
+			return
+		}
+	}
 
 	// 构建标准的初始化响应
 	serverInfo := ServerImplementation{

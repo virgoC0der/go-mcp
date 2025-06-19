@@ -261,7 +261,7 @@ func TestTryParseClaudeMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			msg, err := tryParseClaudeMessage([]byte(tt.inputJSON))
+			msg, err := TryParseClaudeMessage([]byte(tt.inputJSON))
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -304,7 +304,7 @@ func TestStdioServer_HandleMessage(t *testing.T) {
 			mockError:       nil,
 			expectedMethod:  "Initialize",
 			expectedParams:  map[string]interface{}{"clientName": "testClient"},
-			expectOutputSub: `"result":{"capabilities":`, // Check for capabilities in result
+			expectOutputSub: "",
 			expectOutputID:  1,
 			expectErrorResp: false,
 			resetMock:       true,
@@ -328,7 +328,7 @@ func TestStdioServer_HandleMessage(t *testing.T) {
 			mockError:       nil,
 			expectedMethod:  "ListTools",
 			expectedParams:  map[string]interface{}{"cursor": "abc"},
-			expectOutputSub: `"result":{"tools":[{"name":"tool1"}],"nextCursor":"def"}`, // Check result structure
+			expectOutputSub: "",
 			expectOutputID:  3,
 			expectErrorResp: false,
 			resetMock:       true,
@@ -414,7 +414,17 @@ func TestStdioServer_HandleMessage(t *testing.T) {
 			assert.NoError(t, err, "Failed to unmarshal output response JSON")
 
 			assert.Equal(t, "2.0", outputResp.JSONRPC)
-			assert.Equal(t, tt.expectOutputID, outputResp.ID)
+			// 兼容 float64/int 的 ID 比较
+			var expectIDFloat float64
+			switch v := tt.expectOutputID.(type) {
+			case int:
+				expectIDFloat = float64(v)
+			case float64:
+				expectIDFloat = v
+			default:
+				t.Fatalf("unexpected type for expectOutputID: %T", v)
+			}
+			assert.Equal(t, expectIDFloat, outputResp.ID)
 
 			if tt.expectErrorResp {
 				assert.NotNil(t, outputResp.Error, "Expected error field in response")
@@ -423,7 +433,41 @@ func TestStdioServer_HandleMessage(t *testing.T) {
 			} else {
 				assert.Nil(t, outputResp.Error, "Expected nil error field in success response")
 				assert.NotNil(t, outputResp.Result, "Expected result field in success response")
-				assert.Contains(t, string(outputBytes), tt.expectOutputSub, "Expected result substring not found")
+				if tt.expectOutputSub != "" {
+					// 用 JSONEq 比较 result 字段
+					var outputMap, expectMap map[string]interface{}
+					err := json.Unmarshal(outputBytes, &outputMap)
+					assert.NoError(t, err, "Failed to unmarshal output response JSON")
+					err = json.Unmarshal([]byte("{"+tt.expectOutputSub+"}"), &expectMap)
+					assert.NoError(t, err, "Failed to unmarshal expected result JSON")
+					actualResultBytes, _ := json.Marshal(outputMap["result"])
+					expectResultBytes, _ := json.Marshal(expectMap["result"])
+					assert.JSONEq(t, string(expectResultBytes), string(actualResultBytes), "Expected result JSON not equal")
+				}
+			}
+
+			switch tt.name {
+			case "handle initialize success":
+				// 断言 result 结构体内容
+				resultMap, ok := outputResp.Result.(map[string]interface{})
+				assert.True(t, ok, "Result should be a map")
+				assert.Contains(t, resultMap, "capabilities")
+				assert.Contains(t, resultMap, "protocolVersion")
+				assert.Contains(t, resultMap, "serverInfo")
+				assert.Equal(t, "2024-11-05", resultMap["protocolVersion"])
+				serverInfo := resultMap["serverInfo"].(map[string]interface{})
+				assert.Equal(t, "go-mcp stdio server", serverInfo["name"])
+				assert.Equal(t, "1.0.0", serverInfo["version"])
+			case "handle listTools success":
+				// 断言 tools 结果包含 description 字段
+				resultMap, ok := outputResp.Result.(map[string]interface{})
+				assert.True(t, ok, "Result should be a map")
+				tools := resultMap["tools"].([]interface{})
+				assert.Len(t, tools, 1)
+				tool := tools[0].(map[string]interface{})
+				assert.Equal(t, "tool1", tool["name"])
+				assert.Equal(t, "", tool["description"])
+				assert.Equal(t, "def", resultMap["nextCursor"])
 			}
 		})
 	}
