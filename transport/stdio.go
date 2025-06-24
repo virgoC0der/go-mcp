@@ -15,7 +15,7 @@ import (
 
 // StdioServer wraps the stdio transport layer for an MCP server
 type StdioServer struct {
-	srv      types.Server
+	srv      types.MCPService
 	reader   io.Reader
 	writer   io.Writer
 	incoming chan []byte
@@ -49,12 +49,12 @@ type Capabilities struct {
 }
 
 // NewStdioServer creates a new stdio server instance
-func NewStdioServer(srv types.Server) *StdioServer {
+func NewStdioServer(srv types.MCPService) *StdioServer {
 	return NewStdioServerWithIO(srv, os.Stdin, os.Stdout)
 }
 
 // NewStdioServerWithIO creates a new stdio server instance with custom I/O
-func NewStdioServerWithIO(srv types.Server, reader io.Reader, writer io.Writer) *StdioServer {
+func NewStdioServerWithIO(srv types.MCPService, reader io.Reader, writer io.Writer) *StdioServer {
 	return &StdioServer{
 		srv:      srv,
 		reader:   reader,
@@ -95,9 +95,8 @@ func (s *StdioServer) readLoop() {
 	}
 }
 
-// tryParseClaudeMessage tries to extract useful information from Claude's message format
-func tryParseClaudeMessage(data []byte) (*StdioMessage, error) {
-	// First try to parse as raw JSON
+// TryParseClaudeMessage tries to extract useful information from Claude's message format
+func TryParseClaudeMessage(data []byte) (*StdioMessage, error) {
 	var rawMsg map[string]interface{}
 	if err := json.Unmarshal(data, &rawMsg); err != nil {
 		return nil, err
@@ -106,93 +105,99 @@ func tryParseClaudeMessage(data []byte) (*StdioMessage, error) {
 	// Log the raw message
 	fmt.Printf("Raw message from Claude: %+v\n", rawMsg)
 
-	// Create a new StdioMessage
 	msg := &StdioMessage{
 		JSONRPC: "2.0",
 		ID:      1, // Default ID
 	}
 
 	// Extract ID
-	if id, ok := rawMsg["id"]; ok {
+	if id, ok := rawMsg["id"]; ok && id != nil {
 		switch v := id.(type) {
 		case float64:
 			msg.ID = int(v)
 		case int:
 			msg.ID = v
 		case string:
-			// 使用一个默认值
-			fmt.Printf("Using default ID for string ID: %s\n", v)
+			if v != "" {
+				msg.ID = v
+			} else {
+				msg.ID = 1
+			}
+			fmt.Printf("Using string ID: %s\n", v)
+		default:
+			msg.ID = 1
 		}
+	} else {
+		msg.ID = 1
 	}
 
-	// 如果消息包含 jsonrpc 字段，则保留它
 	if jsonrpc, ok := rawMsg["jsonrpc"].(string); ok {
 		msg.JSONRPC = jsonrpc
 	}
 
-	// 如果消息中有 method 字段，则使用它
+	// 1. 优先使用 method 字段
 	if method, ok := rawMsg["method"].(string); ok && method != "" {
 		msg.Method = method
-
-		// 如果是 initialize 方法，确保正确解析
-		if method == "initialize" || method == "Initialize" {
-			msg.Method = "initialize"
-			if params, ok := rawMsg["params"]; ok {
-				paramsBytes, _ := json.Marshal(params)
-				msg.Params = paramsBytes
-			} else {
-				// 对于初始化请求，如果没有参数，提供一个空对象
-				msg.Params = json.RawMessage([]byte("{}"))
-			}
-			return msg, nil
+		if params, ok := rawMsg["params"]; ok {
+			paramsBytes, _ := json.Marshal(params)
+			msg.Params = paramsBytes
+		} else {
+			msg.Params = json.RawMessage([]byte("{}"))
 		}
-	} else {
-		// 尝试推断方法类型
-		// 如果消息中有 id 但没有 method，可能是个初始化请求
-		_, hasId := rawMsg["id"]
-		if hasId && !ok {
+		return msg, nil
+	}
+
+	// 2. Claude 风格推断
+	if role, ok := rawMsg["role"].(string); ok {
+		if content, hasContent := rawMsg["content"]; hasContent {
+			toolName := "default"
+			if role == "user" {
+				msg.Method = "callTool"
+				toolParams := map[string]interface{}{
+					"name": toolName,
+					"args": map[string]interface{}{
+						"content":    content,
+						"rawMessage": rawMsg,
+					},
+				}
+				paramsBytes, _ := json.Marshal(toolParams)
+				msg.Params = paramsBytes
+				return msg, nil
+			} else if role == "assistant" {
+				msg.Method = "getPrompt"
+				promptParams := map[string]interface{}{
+					"name": toolName,
+					"args": map[string]interface{}{
+						"content":    content,
+						"rawMessage": rawMsg,
+					},
+				}
+				paramsBytes, _ := json.Marshal(promptParams)
+				msg.Params = paramsBytes
+				return msg, nil
+			}
+		}
+	}
+
+	// 3. 空对象推断 listTools
+	if len(rawMsg) == 0 {
+		msg.Method = "listTools"
+		msg.Params = json.RawMessage([]byte("{}"))
+		return msg, nil
+	}
+
+	// 4. 兼容 params 但无 method 的情况（如 Claude 初始化）
+	if _, hasId := rawMsg["id"]; hasId {
+		if _, hasParams := rawMsg["params"]; hasParams {
 			msg.Method = "initialize"
 			msg.Params = json.RawMessage([]byte("{}"))
 			return msg, nil
 		}
 	}
 
-	// 根据消息内容确定方法
-	if content, hasContent := rawMsg["content"]; hasContent {
-		msg.Method = "callTool"
-
-		// 构造工具调用参数
-		toolName := "default" // 默认工具名称
-
-		// 尝试从消息中提取工具名称，这取决于 Claude 的消息格式
-		if role, ok := rawMsg["role"].(string); ok && role == "assistant" {
-			msg.Method = "getPrompt"
-		}
-
-		toolParams := map[string]interface{}{
-			"name": toolName,
-			"args": map[string]interface{}{
-				"content":    content,
-				"rawMessage": rawMsg,
-			},
-		}
-
-		paramsBytes, _ := json.Marshal(toolParams)
-		msg.Params = paramsBytes
-	} else if msg.Method == "" {
-		// 如果方法为空，默认为 listTools
-		msg.Method = "listTools"
-		msg.Params = json.RawMessage([]byte("{}"))
-	} else if params, ok := rawMsg["params"]; ok {
-		// 如果有参数字段，使用它
-		paramsBytes, _ := json.Marshal(params)
-		msg.Params = paramsBytes
-	} else {
-		// 如果没有参数，提供一个空对象
-		msg.Params = json.RawMessage([]byte("{}"))
-	}
-
-	fmt.Printf("Transformed message: Method=%s, ID=%d\n", msg.Method, msg.ID)
+	// 5. fallback
+	msg.Method = "initialize"
+	msg.Params = json.RawMessage([]byte("{}"))
 	return msg, nil
 }
 
@@ -206,9 +211,17 @@ func (s *StdioServer) handleMessage(data []byte) {
 	// Check if the message format is valid
 	if err != nil || msg.Method == "" {
 		// Try to parse as Claude format message
-		claudeMsg, parseErr := tryParseClaudeMessage(data)
+		claudeMsg, parseErr := TryParseClaudeMessage(data)
 		if parseErr != nil {
-			s.sendError(0, fmt.Sprintf("Invalid message format: %v", err))
+			// 尝试从原始数据中提取ID用于错误响应
+			var rawMsg map[string]interface{}
+			errorID := interface{}(0) // 默认ID为0，符合测试期望
+			if json.Unmarshal(data, &rawMsg) == nil {
+				if id, ok := rawMsg["id"]; ok && id != nil {
+					errorID = id
+				}
+			}
+			s.sendError(errorID, fmt.Sprintf("Invalid message format: %v", err))
 			return
 		}
 
@@ -256,9 +269,13 @@ func (s *StdioServer) handleInitialize(msg StdioMessage) {
 	}
 
 	// Call the server's Initialize method
-	if err := s.srv.Initialize(context.Background(), opts); err != nil {
-		s.sendError(msg.ID, fmt.Sprintf("Initialization failed: %v", err))
-		return
+	if srv, ok := s.srv.(interface {
+		Initialize(ctx context.Context, options any) error
+	}); ok {
+		if err := srv.Initialize(context.Background(), opts); err != nil {
+			s.sendError(msg.ID, fmt.Sprintf("Initialization failed: %v", err))
+			return
+		}
 	}
 
 	// 构建标准的初始化响应
@@ -518,6 +535,11 @@ func (s *StdioServer) handleSubscribeToResource(msg StdioMessage) {
 func (s *StdioServer) sendResponse(id interface{}, success bool, content json.RawMessage, errorMsg string) {
 	var resp response.JSONRPCResponse
 
+	// 确保ID不为nil
+	if id == nil {
+		id = 1
+	}
+
 	// If successful, set the result field
 	if success && content != nil {
 		// Parse JSON content as interface{}
@@ -551,6 +573,11 @@ func (s *StdioServer) sendResponse(id interface{}, success bool, content json.Ra
 
 // sendSimplifiedError sends a simplified error response when the standard response cannot be serialized
 func (s *StdioServer) sendSimplifiedError(id interface{}, errorMsg string) {
+	// 确保ID不为nil
+	if id == nil {
+		id = 1
+	}
+
 	// Create a minimal response
 	simpleResp := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -574,4 +601,66 @@ func (s *StdioServer) sendSimplifiedError(id interface{}, errorMsg string) {
 // sendError sends an error response
 func (s *StdioServer) sendError(id interface{}, errorMsg string) {
 	s.sendResponse(id, false, nil, errorMsg)
+}
+
+// Server interface implementation - delegate to the wrapped server
+
+// Initialize initializes the server with given options
+func (s *StdioServer) Initialize(ctx context.Context, options any) error {
+	// StdioServer handles its own initialization
+	return nil
+}
+
+// Shutdown gracefully shuts down the server
+func (s *StdioServer) Shutdown(ctx context.Context) error {
+	// Close the done channel to signal shutdown
+	select {
+	case <-s.done:
+		// Already closed
+	default:
+		close(s.done)
+	}
+	return nil
+}
+
+// MCPService interface implementation - delegate to the wrapped server
+
+// ListPrompts returns a list of available prompts
+func (s *StdioServer) ListPrompts(ctx context.Context, cursor string) (*types.PromptListResult, error) {
+	return s.srv.ListPrompts(ctx, cursor)
+}
+
+// GetPrompt retrieves a specific prompt by name with optional arguments
+func (s *StdioServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
+	return s.srv.GetPrompt(ctx, name, args)
+}
+
+// ListTools returns a list of available tools
+func (s *StdioServer) ListTools(ctx context.Context, cursor string) (*types.ToolListResult, error) {
+	return s.srv.ListTools(ctx, cursor)
+}
+
+// CallTool invokes a specific tool by name with arguments
+func (s *StdioServer) CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
+	return s.srv.CallTool(ctx, name, args)
+}
+
+// ListResources returns a list of available resources
+func (s *StdioServer) ListResources(ctx context.Context, cursor string) (*types.ResourceListResult, error) {
+	return s.srv.ListResources(ctx, cursor)
+}
+
+// ReadResource reads the content of a specific resource
+func (s *StdioServer) ReadResource(ctx context.Context, uri string) (*types.ResourceContent, error) {
+	return s.srv.ReadResource(ctx, uri)
+}
+
+// ListResourceTemplates returns a list of available resource templates
+func (s *StdioServer) ListResourceTemplates(ctx context.Context) ([]types.ResourceTemplate, error) {
+	return s.srv.ListResourceTemplates(ctx)
+}
+
+// SubscribeToResource subscribes to changes on a specific resource
+func (s *StdioServer) SubscribeToResource(ctx context.Context, uri string) error {
+	return s.srv.SubscribeToResource(ctx, uri)
 }

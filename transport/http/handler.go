@@ -46,6 +46,7 @@ func createJSONRPCErrorResponse(id interface{}, code int, message string, data i
 
 // newHTTPHandler creates a new HTTP handler
 func newHTTPHandler(service types.MCPService, capabilities *types.ServerCapabilities) *HTTPHandler {
+	gin.SetMode(gin.ReleaseMode)
 	h := &HTTPHandler{
 		service:      service,
 		engine:       gin.Default(),
@@ -60,7 +61,8 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) setupRoutes() {
-	// JSON-RPC endpoint
+
+	// JSON-RPC endpoint/
 	h.engine.POST("/jsonrpc", h.handleJSONRPC)
 
 	// Legacy REST API routes for backwards compatibility

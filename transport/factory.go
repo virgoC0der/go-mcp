@@ -12,8 +12,8 @@ func NewServer(service types.MCPService, options *types.ServerOptions) (types.Se
 			Address: ":8080",
 		}
 	}
-	// 默认使用 HTTP 服务器
-	return http.NewHTTPServer(service, options), nil
+	// 默认使用 stdio 服务器
+	return NewStdioServer(service), nil
 }
 
 // NewClient creates a new client instance based on the provided options
