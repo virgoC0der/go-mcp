@@ -57,6 +57,17 @@ func NewAppLauncherServer() *AppLauncherServer {
 					},
 				},
 			},
+			{
+				Name:        "closeApp",
+				Description: "Close a macOS application",
+				Arguments: []types.PromptArgument{
+					{
+						Name:        "appName",
+						Description: "Name of the application to close",
+						Required:    true,
+					},
+				},
+			},
 		},
 		tools: []types.Tool{
 			{
@@ -68,6 +79,20 @@ func NewAppLauncherServer() *AppLauncherServer {
 						"appName": map[string]interface{}{
 							"type":        "string",
 							"description": "Name of the application to open",
+						},
+					},
+					"required": []string{"appName"},
+				},
+			},
+			{
+				Name:        "closeApp",
+				Description: "Close a macOS application",
+				InputSchema: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"appName": map[string]interface{}{
+							"type":        "string",
+							"description": "Name of the application to close",
 						},
 					},
 					"required": []string{"appName"},
@@ -96,7 +121,7 @@ func (s *AppLauncherServer) ListPrompts(ctx context.Context, cursor string) (*ty
 
 // GetPrompt implements the Server interface
 func (s *AppLauncherServer) GetPrompt(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
-	if name != "openApp" {
+	if name != "openApp" && name != "closeApp" {
 		return nil, fmt.Errorf("unknown prompt: %s", name)
 	}
 
@@ -105,8 +130,8 @@ func (s *AppLauncherServer) GetPrompt(ctx context.Context, name string, args map
 		return nil, fmt.Errorf("missing or invalid argument: appName")
 	}
 
-	// Call the openApp tool
-	result, err := s.CallTool(ctx, "openApp", args)
+	// Call the corresponding tool
+	result, err := s.CallTool(ctx, name, args)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +139,11 @@ func (s *AppLauncherServer) GetPrompt(ctx context.Context, name string, args map
 	// Create a response message
 	var responseText string
 	if result.IsError {
-		responseText = fmt.Sprintf("Failed to open application '%s': %s", appName, result.Content[0].Text)
+		if name == "openApp" {
+			responseText = fmt.Sprintf("Failed to open application '%s': %s", appName, result.Content[0].Text)
+		} else {
+			responseText = fmt.Sprintf("Failed to close application '%s': %s", appName, result.Content[0].Text)
+		}
 	} else {
 		responseText = result.Content[0].Text
 	}
@@ -143,7 +172,7 @@ func (s *AppLauncherServer) ListTools(ctx context.Context, cursor string) (*type
 
 // CallTool implements the Server interface
 func (s *AppLauncherServer) CallTool(ctx context.Context, name string, args map[string]any) (*types.CallToolResult, error) {
-	if name != "openApp" {
+	if name != "openApp" && name != "closeApp" {
 		return nil, fmt.Errorf("unknown tool: %s", name)
 	}
 
@@ -152,17 +181,36 @@ func (s *AppLauncherServer) CallTool(ctx context.Context, name string, args map[
 		return nil, fmt.Errorf("missing or invalid argument: appName")
 	}
 
-	// Use the 'open' command to open the application
-	cmd := exec.Command("open", "-a", appName)
+	var cmd *exec.Cmd
+	var actionText string
+
+	if name == "openApp" {
+		// Use the 'open' command to open the application
+		cmd = exec.Command("open", "-a", appName)
+		actionText = "opened"
+	} else { // closeApp
+		// Use AppleScript to quit the application
+		script := fmt.Sprintf("tell application \"%s\" to quit", appName)
+		cmd = exec.Command("osascript", "-e", script)
+		actionText = "closed"
+	}
+
 	err := cmd.Run()
 
 	if err != nil {
 		// Return error result
+		var errorMsg string
+		if name == "openApp" {
+			errorMsg = fmt.Sprintf("Error opening application: %v", err)
+		} else {
+			errorMsg = fmt.Sprintf("Error closing application: %v", err)
+		}
+
 		return &types.CallToolResult{
 			Content: []types.ToolContent{
 				{
 					Type: "text",
-					Text: fmt.Sprintf("Error opening application: %v", err),
+					Text: errorMsg,
 				},
 			},
 			IsError: true,
@@ -174,7 +222,7 @@ func (s *AppLauncherServer) CallTool(ctx context.Context, name string, args map[
 		Content: []types.ToolContent{
 			{
 				Type: "text",
-				Text: fmt.Sprintf("Successfully opened application: %s", appName),
+				Text: fmt.Sprintf("Successfully %s application: %s", actionText, appName),
 			},
 		},
 		IsError: false,

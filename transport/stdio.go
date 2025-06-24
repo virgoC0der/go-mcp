@@ -113,16 +113,25 @@ func TryParseClaudeMessage(data []byte) (*StdioMessage, error) {
 	}
 
 	// Extract ID
-	if id, ok := rawMsg["id"]; ok {
+	if id, ok := rawMsg["id"]; ok && id != nil {
 		switch v := id.(type) {
 		case float64:
 			msg.ID = int(v)
 		case int:
 			msg.ID = v
 		case string:
-			// 使用一个默认值
-			fmt.Printf("Using default ID for string ID: %s\n", v)
+			// 对于字符串ID，尝试转换为数字，如果失败则使用哈希值
+			if v != "" {
+				msg.ID = v // 保持字符串ID
+			} else {
+				msg.ID = 1 // 空字符串使用默认ID
+			}
+			fmt.Printf("Using string ID: %s\n", v)
+		default:
+			msg.ID = 1 // 其他类型使用默认ID
 		}
+	} else {
+		msg.ID = 1 // 如果没有ID或ID为null，使用默认ID
 	}
 
 	// 如果消息包含 jsonrpc 字段，则保留它
@@ -150,46 +159,64 @@ func TryParseClaudeMessage(data []byte) (*StdioMessage, error) {
 		// 尝试推断方法类型
 		// 如果消息中有 id 但没有 method，可能是个初始化请求
 		_, hasId := rawMsg["id"]
-		if hasId && !ok {
+		if hasId {
+			// 检查是否有其他字段来推断方法类型
+			if _, hasParams := rawMsg["params"]; hasParams {
+				msg.Method = "initialize"
+			} else {
+				// 默认为工具列表请求
+				msg.Method = "tools/list"
+			}
+			msg.Params = json.RawMessage([]byte("{}"))
+			return msg, nil
+		} else {
+			// 没有ID也没有method，可能是通知消息，默认为初始化
 			msg.Method = "initialize"
 			msg.Params = json.RawMessage([]byte("{}"))
 			return msg, nil
 		}
 	}
 
-	// 根据消息内容确定方法
-	if content, hasContent := rawMsg["content"]; hasContent {
-		msg.Method = "callTool"
+	// 如果到这里还没有设置method，根据消息内容确定方法
+	if msg.Method == "" {
+		if content, hasContent := rawMsg["content"]; hasContent {
+			msg.Method = "tools/call"
 
-		// 构造工具调用参数
-		toolName := "default" // 默认工具名称
+			// 构造工具调用参数
+			toolName := "default" // 默认工具名称
 
-		// 尝试从消息中提取工具名称，这取决于 Claude 的消息格式
-		if role, ok := rawMsg["role"].(string); ok && role == "assistant" {
-			msg.Method = "getPrompt"
+			// 尝试从消息中提取工具名称，这取决于 Claude 的消息格式
+			if role, ok := rawMsg["role"].(string); ok && role == "assistant" {
+				msg.Method = "prompts/get"
+			}
+
+			toolParams := map[string]interface{}{
+				"name": toolName,
+				"args": map[string]interface{}{
+					"content":    content,
+					"rawMessage": rawMsg,
+				},
+			}
+
+			paramsBytes, _ := json.Marshal(toolParams)
+			msg.Params = paramsBytes
+		} else {
+			// 如果方法为空，默认为 tools/list
+			msg.Method = "tools/list"
+			msg.Params = json.RawMessage([]byte("{}"))
 		}
+	}
 
-		toolParams := map[string]interface{}{
-			"name": toolName,
-			"args": map[string]interface{}{
-				"content":    content,
-				"rawMessage": rawMsg,
-			},
+	// 确保有参数
+	if msg.Params == nil {
+		if params, ok := rawMsg["params"]; ok {
+			// 如果有参数字段，使用它
+			paramsBytes, _ := json.Marshal(params)
+			msg.Params = paramsBytes
+		} else {
+			// 如果没有参数，提供一个空对象
+			msg.Params = json.RawMessage([]byte("{}"))
 		}
-
-		paramsBytes, _ := json.Marshal(toolParams)
-		msg.Params = paramsBytes
-	} else if msg.Method == "" {
-		// 如果方法为空，默认为 listTools
-		msg.Method = "listTools"
-		msg.Params = json.RawMessage([]byte("{}"))
-	} else if params, ok := rawMsg["params"]; ok {
-		// 如果有参数字段，使用它
-		paramsBytes, _ := json.Marshal(params)
-		msg.Params = paramsBytes
-	} else {
-		// 如果没有参数，提供一个空对象
-		msg.Params = json.RawMessage([]byte("{}"))
 	}
 
 	fmt.Printf("Transformed message: Method=%s, ID=%d\n", msg.Method, msg.ID)
@@ -208,7 +235,15 @@ func (s *StdioServer) handleMessage(data []byte) {
 		// Try to parse as Claude format message
 		claudeMsg, parseErr := TryParseClaudeMessage(data)
 		if parseErr != nil {
-			s.sendError(0, fmt.Sprintf("Invalid message format: %v", err))
+			// 尝试从原始数据中提取ID用于错误响应
+			var rawMsg map[string]interface{}
+			errorID := interface{}(1) // 默认ID
+			if json.Unmarshal(data, &rawMsg) == nil {
+				if id, ok := rawMsg["id"]; ok && id != nil {
+					errorID = id
+				}
+			}
+			s.sendError(errorID, fmt.Sprintf("Invalid message format: %v", err))
 			return
 		}
 
@@ -522,6 +557,11 @@ func (s *StdioServer) handleSubscribeToResource(msg StdioMessage) {
 func (s *StdioServer) sendResponse(id interface{}, success bool, content json.RawMessage, errorMsg string) {
 	var resp response.JSONRPCResponse
 
+	// 确保ID不为nil
+	if id == nil {
+		id = 1
+	}
+
 	// If successful, set the result field
 	if success && content != nil {
 		// Parse JSON content as interface{}
@@ -555,6 +595,11 @@ func (s *StdioServer) sendResponse(id interface{}, success bool, content json.Ra
 
 // sendSimplifiedError sends a simplified error response when the standard response cannot be serialized
 func (s *StdioServer) sendSimplifiedError(id interface{}, errorMsg string) {
+	// 确保ID不为nil
+	if id == nil {
+		id = 1
+	}
+
 	// Create a minimal response
 	simpleResp := map[string]interface{}{
 		"jsonrpc": "2.0",
