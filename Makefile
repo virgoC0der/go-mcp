@@ -1,41 +1,19 @@
-.PHONY: test lint coverage clean
+.PHONY: build test vet tidy clean
 
-# Default target
-all: lint test
+BIN := bin/oceanengine-mcp
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-# Run all tests
+build:
+	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN) ./cmd/oceanengine-mcp
+
 test:
-	go test -v -race ./...
+	go test ./...
 
-# Run tests with coverage
-coverage:
-	go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-	go tool cover -html=coverage.txt -o coverage.html
+vet:
+	go vet ./...
 
-# Run linters
-lint:
-	golangci-lint run ./...
+tidy:
+	go mod tidy
 
-# Clean generated files
 clean:
-	rm -f coverage.txt
-	rm -f coverage.html
-
-# Run example
-run-echo:
-	go run ./examples/echo/main.go
-
-# Run advanced example
-run-advanced:
-	go run ./examples/advanced/main.go
-
-# Help
-help:
-	@echo "Available targets:"
-	@echo "  all        - Run lint and tests"
-	@echo "  test       - Run tests"
-	@echo "  coverage   - Run tests with coverage and generate HTML report"
-	@echo "  lint       - Run linters"
-	@echo "  clean      - Clean generated files"
-	@echo "  run-echo   - Run echo example"
-	@echo "  run-advanced - Run advanced example" 
+	rm -rf bin
