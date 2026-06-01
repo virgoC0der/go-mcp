@@ -37,11 +37,41 @@ make build   # produces ./bin/oceanengine-mcp
 
 ## Configuration
 
-The server is configured via environment variables:
+The server is configured via environment variables.
+
+**Authentication** — choose one of two modes:
+
+*Static token* (you manage refresh yourself):
+
+| Variable | Description |
+|---|---|
+| `OCEANENGINE_ACCESS_TOKEN` | OAuth access token from the Ocean Engine open platform |
+
+*Auto-refresh* (recommended — access tokens last ~1 day): supply app credentials
+and a refresh token and the server refreshes transparently before expiry. Ocean
+Engine **rotates the refresh token on every refresh**, so the server tracks the
+latest one in memory for its lifetime.
 
 | Variable | Required | Description |
 |---|---|---|
-| `OCEANENGINE_ACCESS_TOKEN` | yes | OAuth access token from the Ocean Engine open platform |
+| `OCEANENGINE_APP_ID` | yes | developer app ID (numeric) |
+| `OCEANENGINE_APP_SECRET` | yes | developer app secret |
+| `OCEANENGINE_REFRESH_TOKEN` | yes | OAuth refresh token (valid ~30 days) |
+| `OCEANENGINE_ACCESS_TOKEN` | no | current access token, if you have a fresh one |
+| `OCEANENGINE_ACCESS_TOKEN_EXPIRES_IN` | no | remaining lifetime in seconds; omit to refresh on first use |
+
+Auto-refresh mode activates when `OCEANENGINE_APP_ID`, `OCEANENGINE_APP_SECRET`
+and `OCEANENGINE_REFRESH_TOKEN` are all set; otherwise the server falls back to
+the static `OCEANENGINE_ACCESS_TOKEN`.
+
+> Persisting the rotated refresh token across restarts: when embedding the
+> package, pass `oceanengine.WithOnRefresh(...)` to `NewRefreshingTokenSource` to
+> receive each new token pair and store it.
+
+**Other options:**
+
+| Variable | Required | Description |
+|---|---|---|
 | `OCEANENGINE_BASE_URL` | no | API host override (defaults to `https://api.oceanengine.com`) |
 | `OCEANENGINE_ENABLE_WRITES` | no | set to `1`/`true` to register the mutating tools (off by default) |
 
@@ -92,7 +122,7 @@ the MCP tool layer.
 
 ## Roadmap
 
-- OAuth token refresh helper (the open platform issues short-lived tokens)
+- ~~OAuth token refresh~~ ✅ done (auto-refresh token source)
 - 千川 (Qianchuan) e-commerce ad endpoints
 - Broader report dimensions/metrics and async report export
 - Optional `bububa/oceanengine` backend for full endpoint coverage

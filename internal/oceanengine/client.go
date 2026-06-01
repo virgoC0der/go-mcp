@@ -20,12 +20,13 @@ import (
 // DefaultBaseURL is the production Ocean Engine open API host.
 const DefaultBaseURL = "https://api.oceanengine.com"
 
-// Client talks to the Ocean Engine Marketing API on behalf of a single
-// authenticated advertiser/agent access token.
+// Client talks to the Ocean Engine Marketing API. It obtains the access token
+// for each request from a TokenProvider, so callers can supply either a static
+// token or a self-refreshing OAuth token source.
 type Client struct {
-	baseURL     string
-	accessToken string
-	httpClient  *http.Client
+	baseURL    string
+	tokens     TokenProvider
+	httpClient *http.Client
 }
 
 // Option customizes a Client.
@@ -49,13 +50,25 @@ func WithHTTPClient(h *http.Client) Option {
 	}
 }
 
+// WithTokenProvider supplies the token source used to authenticate requests.
+// When set, it overrides the access token passed to NewClient. Use this with a
+// *RefreshingTokenSource to enable automatic OAuth token refresh.
+func WithTokenProvider(tp TokenProvider) Option {
+	return func(c *Client) {
+		if tp != nil {
+			c.tokens = tp
+		}
+	}
+}
+
 // NewClient builds a Client. The accessToken is the OAuth access_token issued
-// by the Ocean Engine open platform.
+// by the Ocean Engine open platform; pass WithTokenProvider to manage refresh
+// automatically instead.
 func NewClient(accessToken string, opts ...Option) *Client {
 	c := &Client{
-		baseURL:     DefaultBaseURL,
-		accessToken: accessToken,
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
+		baseURL:    DefaultBaseURL,
+		tokens:     StaticToken(accessToken),
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -95,7 +108,7 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	if err != nil {
 		return err
 	}
-	return c.do(req, out)
+	return c.authedDo(req, out)
 }
 
 // post performs an authenticated POST request with a JSON body and unmarshals
@@ -110,17 +123,26 @@ func (c *Client) post(ctx context.Context, path string, body, out any) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	return c.do(req, out)
+	return c.authedDo(req, out)
 }
 
-func (c *Client) do(req *http.Request, out any) error {
-	if c.accessToken == "" {
-		return fmt.Errorf("oceanengine: missing access token")
+// authedDo attaches the access token from the provider and executes the request.
+func (c *Client) authedDo(req *http.Request, out any) error {
+	token, err := c.tokens.Token(req.Context())
+	if err != nil {
+		return err
 	}
 	// Ocean Engine authenticates via the Access-Token header.
-	req.Header.Set("Access-Token", c.accessToken)
+	req.Header.Set("Access-Token", token)
+	return doRequest(c.httpClient, req, out)
+}
 
-	resp, err := c.httpClient.Do(req)
+// doRequest executes req, parses the standard Ocean Engine response envelope and
+// unmarshals the data field into out. A non-zero envelope code becomes an
+// *APIError. It performs no authentication, so it is also used for the OAuth
+// endpoints, which authenticate with app credentials in the body.
+func doRequest(httpClient *http.Client, req *http.Request, out any) error {
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -145,6 +167,21 @@ func (c *Client) do(req *http.Request, out any) error {
 		return fmt.Errorf("oceanengine: decode data: %w", err)
 	}
 	return nil
+}
+
+// postJSON sends an unauthenticated JSON POST to url and decodes the response
+// envelope's data into out. Used by the OAuth token endpoints.
+func postJSON(ctx context.Context, httpClient *http.Client, url string, body, out any) error {
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(buf))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return doRequest(httpClient, req, out)
 }
 
 // jsonParam encodes v as a compact JSON string for use as a query parameter,
