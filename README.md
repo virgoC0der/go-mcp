@@ -1,308 +1,146 @@
-# Go-MCP
+# oceanengine-mcp
 
-[![Go Test and Lint](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml/badge.svg)](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml)
-[![codecov](https://codecov.io/gh/virgoC0der/go-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/virgoC0der/go-mcp)
-[![GoDoc](https://godoc.org/github.com/virgoC0der/go-mcp?status.svg)](https://godoc.org/github.com/virgoC0der/go-mcp)
+[![CI](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml/badge.svg)](https://github.com/virgoC0der/go-mcp/actions/workflows/go.yml)
 
-Go-MCP is a Go implementation of the Model Context Protocol (MCP). MCP is a protocol for building AI services, defining three core primitives: Prompts, Tools, and Resources.
+A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for
+**Ocean Engine (巨量引擎)** — ByteDance's domestic advertising platform (巨量广告 /
+巨量千川 / 本地推 / 星图). It lets AI agents query advertiser accounts, campaigns,
+ads and performance reports — and, when explicitly enabled, adjust campaign
+status and budget — over the standard MCP interface.
 
-## Features
+> **Why this exists.** The "general-purpose Go MCP SDK" question is settled: the
+> [official `modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk)
+> (maintained with Google) and [`mark3labs/mcp-go`](https://github.com/mark3labs/mcp-go)
+> own that space. The open niche is **vertical** MCP servers. Google Ads and Meta
+> Ads already have MCP servers (and TikTok Ads has several), but **Ocean Engine —
+> the domestic Chinese platform — has none.** This project fills that gap, and is
+> built *on top of* the official SDK rather than reimplementing the protocol.
 
-- Complete MCP protocol implementation
-- Type-safe API
-- Multiple transport options (HTTP, SSE)
-- Unified response structure
-- Pagination support
-- Change notifications support
+## Status
 
-## Installation
+Early but functional. The MCP layer is fully working (verified end-to-end via the
+in-memory transport and a stdio smoke test); the Ocean Engine client implements
+the documented Marketing API endpoints. Hitting the live API requires a valid
+`access_token` from the [Ocean Engine open platform](https://open.oceanengine.com/).
+
+## Install
 
 ```bash
-go get github.com/virgoC0der/go-mcp
+go install github.com/virgoC0der/go-mcp/cmd/oceanengine-mcp@latest
 ```
 
-## Quick Start
+Or build from source:
 
-### Creating a Server
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "github.com/virgoC0der/go-mcp"
-    "github.com/virgoC0der/go-mcp/internal/types"
-)
-
-// Implement MCPService interface
-type MyService struct {
-    // ... your service implementation
-}
-
-func main() {
-    // Create service instance
-    service := &MyService{}
-
-    // Create server
-    server, err := mcp.NewServer(service, &types.ServerOptions{
-        Address: ":8080",
-        Type:    "sse", // or "http"
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Initialize server
-    ctx := context.Background()
-    if err := server.Initialize(ctx, nil); err != nil {
-        log.Fatal(err)
-    }
-
-    // Start server
-    if err := server.Start(); err != nil {
-        log.Fatal(err)
-    }
-}
+```bash
+make build   # produces ./bin/oceanengine-mcp
 ```
 
-### Creating a Client
+## Configuration
 
-```go
-package main
+The server is configured via environment variables.
 
-import (
-    "context"
-    "log"
-    "github.com/virgoC0der/go-mcp"
-    "github.com/virgoC0der/go-mcp/internal/types"
-)
+**Authentication** — choose one of two modes:
 
-func main() {
-    // Create client
-    client, err := mcp.NewClient(&types.ClientOptions{
-        ServerAddress: "localhost:8080",
-        Type:         "http", // or "sse", "websocket"
-        UseJSONRPC: true,
-        SubscribeToNotifications: true,
-    })
-    if err != nil {
-        log.Fatal(err)
-    }
+*Static token* (you manage refresh yourself):
 
-    // Connect to server
-    ctx := context.Background()
-    if err := client.Connect(ctx); err != nil {
-        log.Fatal(err)
-    }
-    defer client.Close()
+| Variable | Description |
+|---|---|
+| `OCEANENGINE_ACCESS_TOKEN` | OAuth access token from the Ocean Engine open platform |
 
-    // Get service interface
-    service := client.Service()
+*Auto-refresh* (recommended — access tokens last ~1 day): supply app credentials
+and a refresh token and the server refreshes transparently before expiry. Ocean
+Engine **rotates the refresh token on every refresh**, so the server tracks the
+latest one in memory for its lifetime.
 
-    // Use service
-    result, err := service.ListPrompts(ctx, "")
-    if err != nil {
-        log.Fatal(err)
-    }
-    log.Printf("Available prompts: %v", result.Prompts)
+| Variable | Required | Description |
+|---|---|---|
+| `OCEANENGINE_APP_ID` | yes | developer app ID (numeric) |
+| `OCEANENGINE_APP_SECRET` | yes | developer app secret |
+| `OCEANENGINE_REFRESH_TOKEN` | yes | OAuth refresh token (valid ~30 days) |
+| `OCEANENGINE_ACCESS_TOKEN` | no | current access token, if you have a fresh one |
+| `OCEANENGINE_ACCESS_TOKEN_EXPIRES_IN` | no | remaining lifetime in seconds; omit to refresh on first use |
 
-    // Get next page if available
-    if result.NextCursor != "" {
-        nextPage, err := service.ListPrompts(ctx, result.NextCursor)
-        if err != nil {
-            log.Fatal(err)
-        }
-        log.Printf("Next page prompts: %v", nextPage.Prompts)
-    }
-}
-```
+Auto-refresh mode activates when `OCEANENGINE_APP_ID`, `OCEANENGINE_APP_SECRET`
+and `OCEANENGINE_REFRESH_TOKEN` are all set; otherwise the server falls back to
+the static `OCEANENGINE_ACCESS_TOKEN`.
 
-## Response Structure
+> Persisting the rotated refresh token across restarts: when embedding the
+> package, pass `oceanengine.WithOnRefresh(...)` to `NewRefreshingTokenSource` to
+> receive each new token pair and store it.
 
-### JSON-RPC Responses
+**Other options:**
 
-For JSON-RPC endpoints, responses follow the JSON-RPC 2.0 specification with a unified response handling system across all transport layers:
+| Variable | Required | Description |
+|---|---|---|
+| `OCEANENGINE_BASE_URL` | no | API host override (defaults to `https://api.oceanengine.com`) |
+| `OCEANENGINE_ENABLE_WRITES` | no | set to `1`/`true` to register the mutating tools (off by default) |
 
-```go
-type JSONRPCResponse struct {
-    JSONRPC string        `json:"jsonrpc"`
-    ID      interface{}   `json:"id"`
-    Result  interface{}   `json:"result,omitempty"`
-    Error   *JSONRPCError `json:"error,omitempty"`
-}
+### Use with an MCP client
 
-type JSONRPCError struct {
-    Code    int         `json:"code"`
-    Message string      `json:"message"`
-    Data    interface{} `json:"data,omitempty"`
-}
-```
-
-JSON-RPC Success Response Example:
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-        "prompts": [
-            {
-                "name": "example_prompt",
-                "description": "An example prompt"
-            }
-        ],
-        "nextCursor": ""
+  "mcpServers": {
+    "oceanengine": {
+      "command": "oceanengine-mcp",
+      "env": { "OCEANENGINE_ACCESS_TOKEN": "your-token" }
     }
+  }
 }
 ```
 
-JSON-RPC Error Response Example:
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "error": {
-        "code": -32602,
-        "message": "Invalid params",
-        "data": "Missing required parameter: name"
-    }
-}
+## Tools
+
+Read tools (always available):
+
+| Tool | Ocean Engine endpoint | Purpose |
+|---|---|---|
+| `oceanengine_get_advertiser_info` | `GET /2/advertiser/info/` | account info by advertiser ID |
+| `oceanengine_list_campaigns` | `GET /2/campaign/get/` | list campaigns (广告组), paginated |
+| `oceanengine_list_ads` | `GET /2/ad/get/` | list ads (广告计划), paginated |
+| `oceanengine_get_report` | `GET /2/report/ad/get/` | performance report by date range/dimensions |
+
+Write tools (only when `OCEANENGINE_ENABLE_WRITES` is set — they mutate the live
+account):
+
+| Tool | Ocean Engine endpoint | Purpose |
+|---|---|---|
+| `oceanengine_update_campaign_status` | `POST /2/campaign/update/status/` | enable / disable / delete campaigns |
+| `oceanengine_update_campaign_budget` | `POST /2/campaign/update/budget/` | set a campaign budget |
+
+## Architecture
+
+```
+cmd/oceanengine-mcp     entrypoint: reads env, runs MCP over stdio
+internal/mcpserver      registers tools on the official go-sdk; no protocol code
+internal/oceanengine    thin Marketing API client (auth, envelope, endpoints)
 ```
 
-The library provides a unified response handling system that works across HTTP, WebSocket, and stdio transport layers, ensuring consistent error handling and response formatting.
+The Ocean Engine client is deliberately thin and dependency-light. To broaden
+endpoint coverage later, its methods can be backed by the much larger community
+SDK [`bububa/oceanengine`](https://github.com/bububa/oceanengine) without touching
+the MCP tool layer.
 
-## Examples
+## Roadmap
 
-- [Echo Server](examples/echo/main.go) - A simple echo server example
-- [Weather Service](examples/weather/main.go) - A weather service example using OpenWeatherMap API
-- [App Launcher](examples/app-launcher/main.go) - A macOS application launcher example with stdio server support
+- ~~OAuth token refresh~~ ✅ done (auto-refresh token source)
+- 千川 (Qianchuan) e-commerce ad endpoints
+- Broader report dimensions/metrics and async report export
+- Optional `bububa/oceanengine` backend for full endpoint coverage
 
-## API Documentation
+## Note on the repository name
 
-### Server Interface
+This project currently lives in the `go-mcp` repository for historical reasons.
+The intended home is a dedicated `oceanengine-mcp` repository — renaming the repo
+(which preserves stars and history) updates the import path accordingly.
 
-Servers must implement the `types.Server` interface:
+## Development
 
-```go
-type Server interface {
-    MCPService
-    Initialize(ctx context.Context, options any) error
-    Start() error
-    Shutdown(ctx context.Context) error
-}
+```bash
+make test    # go test ./...
+make vet     # go vet ./...
+make build   # build the binary
 ```
-
-The `MCPService` interface defines the core functionality:
-
-```go
-type MCPService interface {
-    // ListPrompts returns a list of available prompts with pagination support
-    ListPrompts(ctx context.Context, cursor string) (*PromptListResult, error)
-
-    // GetPrompt retrieves a specific prompt by name with optional arguments
-    GetPrompt(ctx context.Context, name string, args map[string]any) (*PromptResult, error)
-
-    // ListTools returns a list of available tools with pagination support
-    ListTools(ctx context.Context, cursor string) (*ToolListResult, error)
-
-    // CallTool invokes a specific tool by name with arguments
-    CallTool(ctx context.Context, name string, args map[string]any) (*CallToolResult, error)
-
-    // ListResources returns a list of available resources with pagination support
-    ListResources(ctx context.Context, cursor string) (*ResourceListResult, error)
-
-    // ReadResource reads the content of a specific resource
-    ReadResource(ctx context.Context, uri string) (*ResourceContent, error)
-
-    // ListResourceTemplates returns a list of available resource templates
-    ListResourceTemplates(ctx context.Context) ([]ResourceTemplate, error)
-
-    // SubscribeToResource subscribes to changes on a specific resource
-    SubscribeToResource(ctx context.Context, uri string) error
-}
-```
-
-### Client Interface
-
-Clients access services through the `types.Client` interface:
-
-```go
-type Client interface {
-    // Connect establishes a connection to the server
-    Connect(ctx context.Context) error
-
-    // Close terminates the connection
-    Close() error
-
-    // Service returns the underlying MCPService interface
-    Service() MCPService
-}
-```
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-## Updated to MCP Specification 2025-03-26
-
-This library has been updated to support the Model Context Protocol (MCP) 2025-03-26 specification. Major updates include:
-
-### New Features
-
-- **Complete JSON-RPC Support**: Implemented JSON-RPC 2.0 API endpoints compliant with the latest MCP specification
-- **Enhanced Multimodal Content**: Support for text, image, audio, and embedded resource content transmission
-- **Pagination Support**: All list APIs now support cursor-based pagination
-- **Resource Templates**: Support for parameterized resource URI templates
-- **Resource Subscriptions**: Support for client subscriptions to resource change notifications
-- **Rich Server Capabilities**: More granular server capability declarations
-- **Unified Response Handling**: Standardized response handling across different transport layers
-
-### Backward Compatibility
-
-- Preserved original REST API endpoints to ensure compatibility with older clients
-- Notification system supports both new and old notification formats
-
-### Example Usage
-
-```go
-// Create server
-server, err := mcp.NewServer(service, &types.ServerOptions{
-    Address: ":8080",
-    Capabilities: &types.ServerCapabilities{
-        Prompts: &types.PromptCapabilities{
-            ListChanged: true,
-        },
-        Resources: &types.ResourceCapabilities{
-            ListChanged: true,
-            Subscribe: true,
-            Templates: true,
-        },
-    },
-})
-
-// Create client
-client, err := mcp.NewClient(&types.ClientOptions{
-    ServerAddress: "localhost:8080",
-    Type: "http",
-    UseJSONRPC: true,
-    SubscribeToNotifications: true,
-})
-
-// Get prompts list (with pagination support)
-result, err := client.Service().ListPrompts(ctx, "")
-// Get next page
-nextPage, err := client.Service().ListPrompts(ctx, result.NextCursor)
-
-// Subscribe to resource changes
-err := client.Service().SubscribeToResource(ctx, "file:///example.txt")
-```
+MIT — see [LICENSE](./LICENSE).
